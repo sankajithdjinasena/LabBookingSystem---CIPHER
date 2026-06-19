@@ -121,16 +121,13 @@ During periods of high demand, long booking requests are divided into smaller ti
 ## 🛠️ Suggested Technology Stack
 
 ### Frontend
-- React.js / Angular / Vue.js / HTML / CSS
+-  HTML, CSS, JavaScript
 
 ### Backend
-- Spring Boot / Node.js / Django / PHP
+-  PHP
 
 ### Database
 - MySQL / PostgreSQL
-
-### Authentication
-- University SSO / JWT
 
 ### Notifications
 - Email API
@@ -138,7 +135,7 @@ During periods of high demand, long booking requests are divided into smaller ti
 
 ## 👥 Team Predictra
 
-- Harol Maxilan
+- Harol Maxilan ( Team Leader)
 - Sankajith D. Jinasena
 - P. M. Sanodya V. Jinadasa
 - Mohomed Yoosuf

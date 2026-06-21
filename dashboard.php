@@ -38,12 +38,12 @@ $justRegistered = isset($_GET['welcome']);
     <?php endif; ?>
 
     <?php if (isset($_GET['booked'])): ?>
-      <div class="banner <?php echo $_GET['booked'] === 'waitlist' ? 'banner-warn' : 'banner-success'; ?>">
-        <span><?php echo $_GET['booked'] === 'waitlist' ? '⏳' : '✓'; ?></span>
+      <div class="banner <?php echo $_GET['booked'] === 'waitlist' ? 'banner-warn' : 'banner-info'; ?>">
+        <span><?php echo $_GET['booked'] === 'waitlist' ? '⏳' : '📝'; ?></span>
         <span>
           <?php echo $_GET['booked'] === 'waitlist'
             ? 'Your booking conflicted with an existing one and was added to the waitlist — check Notifications for an alternative slot.'
-            : 'Your booking was approved and confirmed.'; ?>
+            : 'Your booking request has been submitted and is awaiting approval.'; ?>
         </span>
       </div>
     <?php endif; ?>
@@ -134,7 +134,9 @@ $justRegistered = isset($_GET['welcome']);
             <div class="notif-list">
               <?php foreach ($recentNotifications as $n): ?>
                 <div class="notif-item <?php echo $n['is_read'] ? '' : 'is-unread'; ?>">
-                  <span class="notif-icon"><?php echo $n['type'] === 'approval' ? '✓' : ($n['type'] === 'rejection' ? '✕' : ($n['type'] === 'waitlist' ? '⏳' : '🔔')); ?></span>
+                  <span class="notif-icon"><?php
+                    echo $n['type'] === 'submission' ? '📝' : ($n['type'] === 'approval' ? '✓' : ($n['type'] === 'rejection' ? '✕' : ($n['type'] === 'waitlist' ? '⏳' : '🔔')));
+                  ?></span>
                   <div class="notif-body">
                     <div class="notif-message"><?php echo e($n['message']); ?></div>
                     <div class="notif-time"><?php echo time_ago($n['created_at']); ?></div>

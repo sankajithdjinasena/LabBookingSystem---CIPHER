@@ -14,15 +14,16 @@ $notifications = get_notifications($user['id'], 50);
 mark_notifications_read($user['id']);
 
 $iconFor = static function (string $type): string {
-    return match ($type) {
-        'approval'     => '✓',
-        'rejection'    => '✕',
-        'cancellation' => '🗑️',
-        'reminder'     => '⏰',
-        'waitlist'     => '⏳',
-        'alternative'  => '🔁',
-        default        => '🔔',
-    };
+    switch ($type) {
+        case 'submission':   return '📝';
+        case 'approval':     return '✓';
+        case 'rejection':    return '✕';
+        case 'cancellation': return '🗑️';
+        case 'reminder':     return '⏰';
+        case 'waitlist':     return '⏳';
+        case 'alternative':  return '🔁';
+        default:             return '🔔';
+    }
 };
 ?>
 <!DOCTYPE html>

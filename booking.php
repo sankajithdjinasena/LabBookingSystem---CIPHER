@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Urgency must be between 1 and 5.';
     } else {
         $result = create_booking($user['id'], $resource['id'], $old['purpose'], $start, $end, $old['urgency'], $old['team_size']);
-        header('Location: dashboard.php?booked=' . ($result['status'] === 'waitlist' ? 'waitlist' : 'approved'));
+        header('Location: dashboard.php?booked=' . $result['status']);
         exit;
     }
 }

@@ -26,45 +26,52 @@ function e(?string $value): string
 
 function category_label(string $category): string
 {
-    return match ($category) {
-        'lab'        => 'Computer Lab',
-        'room'       => 'Meeting Room',
-        'multimedia' => 'Multimedia Equipment',
-        'device'     => 'Testing Device',
-        default      => ucfirst($category),
-    };
+    switch ($category) {
+        case 'lab':        return 'Computer Lab';
+        case 'room':       return 'Meeting Room';
+        case 'multimedia': return 'Multimedia Equipment';
+        case 'device':     return 'Testing Device';
+        default:           return ucfirst($category);
+    }
 }
 
 function category_icon(string $category): string
 {
-    return match ($category) {
-        'lab'        => '🖥️',
-        'room'       => '🚪',
-        'multimedia' => '🎥',
-        'device'     => '🧪',
-        default      => '📦',
-    };
+    switch ($category) {
+        case 'lab':        return '🖥️';
+        case 'room':       return '🚪';
+        case 'multimedia': return '🎥';
+        case 'device':     return '🧪';
+        default:           return '📦';
+    }
 }
 
 function status_badge_class(string $status): string
 {
-    return match ($status) {
-        'approved', 'completed' => 'is-approved',
-        'pending'                => 'is-pending',
-        'waitlist'                => 'is-waitlist',
-        'rejected', 'cancelled'  => 'is-rejected',
-        default                  => 'is-pending',
-    };
+    switch ($status) {
+        case 'approved':
+        case 'completed':
+            return 'is-approved';
+        case 'pending':
+            return 'is-pending';
+        case 'waitlist':
+            return 'is-waitlist';
+        case 'rejected':
+        case 'cancelled':
+            return 'is-rejected';
+        default:
+            return 'is-pending';
+    }
 }
 
 function role_label(string $role): string
 {
-    return match ($role) {
-        'project_lead' => 'Project Team Leader',
-        'admin'        => 'Administrator',
-        'faculty'      => 'Faculty Member',
-        default        => 'Student',
-    };
+    switch ($role) {
+        case 'project_lead': return 'Project Team Leader';
+        case 'admin':         return 'Administrator';
+        case 'faculty':       return 'Faculty Member';
+        default:              return 'Student';
+    }
 }
 
 function time_ago(string $datetime): string
@@ -91,8 +98,13 @@ function fetch_resources(string $category = '', string $search = ''): array
         $params['category'] = $category;
     }
     if ($search !== '') {
-        $sql .= ' AND (name LIKE :search OR location LIKE :search OR description LIKE :search)';
-        $params['search'] = '%' . $search . '%';
+        // Distinct placeholder names — real prepared statements
+        // (ATTR_EMULATE_PREPARES = false) don't allow reusing one
+        // named parameter more than once in the same query.
+        $sql .= ' AND (name LIKE :search1 OR location LIKE :search2 OR description LIKE :search3)';
+        $params['search1'] = '%' . $search . '%';
+        $params['search2'] = '%' . $search . '%';
+        $params['search3'] = '%' . $search . '%';
     }
     $sql .= ' ORDER BY category, name';
 
@@ -137,13 +149,14 @@ function calculate_fairness_score(int $userId): float
 
 function calculate_priority_score(int $urgency, int $teamSize, float $fairness, string $requestedAt): float
 {
-    $urgencyNorm   = max(0, min(10, $urgency * 2));          // urgency is 1–5 -> scale to 0–10
-    $teamSizeNorm  = max(0, min(10, $teamSize));              // team size already roughly 0–10
-    $fairnessNorm  = max(0, min(10, $fairness));
+    $urgencyNorm  = max(0, min(10, $urgency * 2));   // urgency is 1–5 -> scale to 0–10
+    $teamSizeNorm = max(0, min(10, $teamSize));       // team size already roughly 0–10
+    $fairnessNorm = max(0, min(10, $fairness));
 
-    // Earlier requests (relative to "now") score slightly higher — a small
-    // first-come tiebreaker worth 10% of the total.
-    $requestTimeNorm = 10;
+    // Older requests score slightly higher — a small first-come tiebreaker
+    // worth 10% of the total, capped at 10 hours of age.
+    $ageInHours = (time() - strtotime($requestedAt)) / 3600;
+    $requestTimeNorm = min(10, max(0, $ageInHours));
 
     $score = (0.4 * $urgencyNorm)
            + (0.3 * $teamSizeNorm)
@@ -177,6 +190,27 @@ function has_overlapping_booking(int $resourceId, string $start, string $end, ?i
     return (int) $stmt->fetch()['overlaps'] > 0;
 }
 
+/** Same as has_overlapping_booking() but returns the conflicting rows themselves. */
+function get_overlapping_bookings(int $resourceId, string $start, string $end, ?int $excludeBookingId = null): array
+{
+    $pdo = get_db_connection();
+    $sql = "SELECT * FROM bookings
+            WHERE resource_id = :resource_id
+              AND status IN ('approved','pending')
+              AND start_time < :end_time
+              AND end_time > :start_time";
+    $params = ['resource_id' => $resourceId, 'start_time' => $start, 'end_time' => $end];
+
+    if ($excludeBookingId !== null) {
+        $sql .= ' AND id != :exclude_id';
+        $params['exclude_id'] = $excludeBookingId;
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
 /** Suggests the next free same-length slot on the same resource, same day, within working hours (08:00–20:00). */
 function suggest_alternative_slot(int $resourceId, string $start, string $end): ?array
 {
@@ -202,8 +236,10 @@ function suggest_alternative_slot(int $resourceId, string $start, string $end): 
 
 /* =====================================================================
    Booking creation — the conflict resolution pipeline described in
-   the project README: detect conflict, score, allocate, suggest
-   alternative, or waitlist.
+   the project README: detect conflict, score, then either wait for
+   admin/faculty review (no conflict) or join the waitlist (conflict).
+   Nothing here ever sets status to 'approved' — only a human action
+   in admin/bookings.php or faculty/approvals.php does that.
    ===================================================================== */
 
 function create_booking(int $userId, int $resourceId, string $purpose, string $start, string $end, int $urgency, int $teamSize): array
@@ -215,7 +251,7 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
     $pdo->beginTransaction();
     try {
         $conflict = has_overlapping_booking($resourceId, $start, $end);
-        $status = $conflict ? 'waitlist' : 'approved';
+        $status = $conflict ? 'waitlist' : 'pending';
 
         $stmt = $pdo->prepare(
             'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
@@ -256,7 +292,7 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                     : 'No alternative slot was found today — you will be notified if the original slot frees up.');
             create_notification($userId, $bookingId, $alternative ? 'alternative' : 'waitlist', $message);
         } else {
-            create_notification($userId, $bookingId, 'approval', 'Your booking has been approved and confirmed.');
+            create_notification($userId, $bookingId, 'submission', 'Your booking request has been submitted and is awaiting approval.');
         }
 
         $pdo->commit();
@@ -286,6 +322,8 @@ function cancel_booking(int $bookingId, int $userId): bool
         create_notification($userId, $bookingId, 'cancellation', 'Your booking has been cancelled.');
 
         // Promote the earliest-priority waitlisted request for the freed slot, if any.
+        // It moves to 'pending', not straight to 'approved' — a human still
+        // has to confirm it, same as any other request.
         if ($booking['status'] === 'approved') {
             $promote = $pdo->prepare(
                 "SELECT * FROM bookings
@@ -301,13 +339,17 @@ function cancel_booking(int $bookingId, int $userId): bool
             $next = $promote->fetch();
 
             if ($next) {
-                $approve = $pdo->prepare("UPDATE bookings SET status = 'approved' WHERE id = :id");
+                $approve = $pdo->prepare("UPDATE bookings SET status = 'pending' WHERE id = :id");
                 $approve->execute(['id' => $next['id']]);
+
+                $deleteWait = $pdo->prepare("DELETE FROM waitlist WHERE booking_id = :id");
+                $deleteWait->execute(['id' => $next['id']]);
+
                 create_notification(
                     (int) $next['user_id'],
                     (int) $next['id'],
-                    'approval',
-                    'A slot you were waitlisted for just opened up — your booking is now confirmed.'
+                    'waitlist',
+                    'A slot you were waitlisted for just opened up — your request now needs final approval.'
                 );
             }
         }
@@ -389,7 +431,7 @@ function dashboard_stats(int $userId): array
     $stmt = $pdo->prepare(
         "SELECT
             SUM(CASE WHEN status = 'pending'  THEN 1 ELSE 0 END) AS pending,
-            SUM(CASE WHEN status = 'approved' AND DATE(start_time) = CURDATE() THEN 1 ELSE 0 END) AS today,
+            SUM(CASE WHEN status IN ('approved','pending') AND DATE(start_time) = CURDATE() THEN 1 ELSE 0 END) AS today,
             SUM(CASE WHEN status = 'waitlist' THEN 1 ELSE 0 END) AS waitlisted,
             COUNT(*) AS total
          FROM bookings WHERE user_id = :user_id"

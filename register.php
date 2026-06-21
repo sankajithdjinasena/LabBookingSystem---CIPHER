@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Those passwords don't match.";
     } elseif (!in_array($old['role'], $allowedRoles, true)) {
         $error = 'Please choose a valid account type.';
+    } elseif (!isset($_POST['agree_terms'])) {
+        $error = 'Please agree to the Terms of Service and Privacy Policy to continue.';
     } else {
         $pdo = get_db_connection();
         $check = $pdo->prepare('SELECT id FROM users WHERE email = :email');
@@ -186,6 +188,18 @@ $csrf_token = $_SESSION['csrf_token'];
         </div>
 
         <p class="field-hint" style="margin: 4px 0 22px;">*Faculty accounts gain reviewer permissions after a quick verification by an administrator.</p>
+
+        <div class="field-row" style="align-items:flex-start; margin-bottom: 22px;">
+          <label class="checkbox" style="align-items:flex-start;">
+            <input type="checkbox" name="agree_terms" required>
+            <span>
+              I agree to the
+              <a href="terms.php" class="link-amber" target="_blank" rel="noopener">Terms of Service</a>
+              and
+              <a href="privacy-policy.php" class="link-amber" target="_blank" rel="noopener">Privacy Policy</a>
+            </span>
+          </label>
+        </div>
 
         <button type="submit" class="btn btn-amber btn-block">Create account</button>
       </form>

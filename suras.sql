@@ -119,5 +119,9 @@ INSERT INTO users (full_name, email, password_hash, role, department) VALUES
 ('Harol Maxilan',        'harol.admin@university.edu',  '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'admin',        'Resource Office'),
 ('Dr. A. Perera',        'a.perera@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'faculty',      'Computer Science'),
 ('Sankajith Jinasena',   'sankajith@university.edu',    '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'project_lead', 'Computer Science'),
+<<<<<<< HEAD
 ('Mathurya Muralimohan', 'mathurya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science'),
 ('Sanodya Jinadasa', 'sanodya@university.edu',      '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science');
+=======
+('Mathurya Muralimohan', 'mathurya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science');
+>>>>>>> 6392ecb24989b64684555b9db29e7e38d5f6fd25

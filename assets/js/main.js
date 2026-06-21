@@ -10,6 +10,7 @@
     initMobileNav();
     initPasswordToggle();
     initLoginValidation();
+    initRegisterValidation();
   });
 
   /* ---------------------------------------------------------------
@@ -38,18 +39,18 @@
      Password show/hide
      --------------------------------------------------------------- */
   function initPasswordToggle() {
-    var toggle = document.querySelector('[data-toggle-password]');
-    if (!toggle) return;
+    var toggles = document.querySelectorAll('[data-toggle-password]');
+    toggles.forEach(function (toggle) {
+      var targetId = toggle.getAttribute('data-toggle-password');
+      var input = document.getElementById(targetId);
+      if (!input) return;
 
-    var targetId = toggle.getAttribute('data-toggle-password');
-    var input = document.getElementById(targetId);
-    if (!input) return;
-
-    toggle.addEventListener('click', function () {
-      var isHidden = input.type === 'password';
-      input.type = isHidden ? 'text' : 'password';
-      toggle.textContent = isHidden ? 'Hide' : 'Show';
-      toggle.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
+      toggle.addEventListener('click', function () {
+        var isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        toggle.textContent = isHidden ? 'Hide' : 'Show';
+        toggle.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
+      });
     });
   }
 
@@ -93,6 +94,44 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'Signing in…';
       }
+    });
+  }
+
+  /* ---------------------------------------------------------------
+     Register form — confirm the two submit buttons disable, and
+     catch an obvious password mismatch before it round-trips.
+     --------------------------------------------------------------- */
+  function initRegisterValidation() {
+    var form = document.getElementById('register-form');
+    if (!form) return;
+
+    var password = document.getElementById('password');
+    var confirm = document.getElementById('confirm_password');
+
+    form.addEventListener('submit', function (e) {
+      if (password.value.length < 8) {
+        e.preventDefault();
+        password.focus();
+        return;
+      }
+      if (password.value !== confirm.value) {
+        e.preventDefault();
+        confirm.setCustomValidity('Passwords do not match');
+        confirm.reportValidity();
+        confirm.focus();
+        return;
+      }
+      confirm.setCustomValidity('');
+
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating account…';
+      }
+    });
+
+    confirm.addEventListener('input', function () {
+      confirm.setCustomValidity('');
     });
   }
 })();

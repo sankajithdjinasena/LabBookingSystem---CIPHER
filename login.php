@@ -159,8 +159,10 @@ $csrf_token = $_SESSION['csrf_token'];
 
       <div class="auth-divider">New to SURAS</div>
 
+      <a href="register.php" class="btn btn-ghost btn-block" style="margin-bottom: 14px;">Create an account</a>
+
       <p class="auth-footer-note">
-        Accounts are issued by your department.
+        Need a faculty or admin account?
         <a href="index.php#contact" class="link-amber">Contact resource admin</a>
       </p>
     </div>

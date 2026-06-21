@@ -4,6 +4,11 @@
  * Provides a single shared PDO instance via get_db_connection().
  */
 
+if (defined('SURAS_DATABASE_LOADED')) {
+    return;
+}
+define('SURAS_DATABASE_LOADED', true);
+
 require_once __DIR__ . '/config.php';
 
 function get_db_connection(): PDO

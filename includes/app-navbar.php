@@ -8,9 +8,17 @@
 $active = $active ?? '';
 $unread = function_exists('unread_notification_count') ? unread_notification_count($user['id']) : 0;
 ?>
+<?php
+$brandUrl = 'dashboard.php';
+if ($user['role'] === 'admin') {
+    $brandUrl = 'admin/dashboard.php';
+} elseif ($user['role'] === 'faculty') {
+    $brandUrl = 'faculty/approvals.php';
+}
+?>
 <header class="site-header">
   <div class="container nav">
-    <a href="dashboard.php" class="brand">
+    <a href="<?php echo $brandUrl; ?>" class="brand">
       <span class="brand-mark">S</span>
       <span>
         <span class="brand-name">SURAS</span>
@@ -26,6 +34,11 @@ $unread = function_exists('unread_notification_count') ? unread_notification_cou
         <li><a href="notifications.php" class="<?php echo $active === 'notifications' ? 'is-active' : ''; ?>">
           Notifications<?php if ($unread > 0): ?> <span class="nav-badge"><?php echo $unread; ?></span><?php endif; ?>
         </a></li>
+        <?php if ($user['role'] === 'admin'): ?>
+          <li><a href="admin/dashboard.php" style="color:var(--amber); font-weight:600;">Admin Console</a></li>
+        <?php elseif ($user['role'] === 'faculty'): ?>
+          <li><a href="faculty/approvals.php" style="color:var(--amber); font-weight:600;">Faculty Review</a></li>
+        <?php endif; ?>
       </ul>
     </nav>
 

@@ -14,6 +14,8 @@ if (defined('SURAS_FUNCTIONS_LOADED')) {
 define('SURAS_FUNCTIONS_LOADED', true);
 
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/mailer.php';
 
 /* =====================================================================
    Formatting helpers
@@ -146,19 +148,23 @@ function calculate_fairness_score(int $userId): float
 
 function calculate_priority_score(int $urgency, int $teamSize, float $fairness, string $requestedAt): float
 {
-    $urgencyNorm   = max(0, min(10, $urgency * 2));          // urgency is 1–5 -> scale to 0–10
-    $teamSizeNorm  = max(0, min(10, $teamSize));              // team size already roughly 0–10
-    $fairnessNorm  = max(0, min(10, $fairness));
+    // Load weights from settings (falls back to spec defaults if DB unavailable).
+    $wU = (float) get_setting('weight_urgency',      '0.40');
+    $wT = (float) get_setting('weight_team_size',    '0.30');
+    $wF = (float) get_setting('weight_fairness',     '0.20');
+    $wR = (float) get_setting('weight_request_time', '0.10');
 
-    // Earlier requests (relative to "now") score slightly higher — a small
-    // first-come tiebreaker worth 10% of the total. We calculate the age in hours.
-    $ageInHours = (time() - strtotime($requestedAt)) / 3600;
+    $urgencyNorm  = max(0, min(10, $urgency * 2));   // 1–5 → 0–10
+    $teamSizeNorm = max(0, min(10, $teamSize));
+    $fairnessNorm = max(0, min(10, $fairness));
+
+    $ageInHours      = (time() - strtotime($requestedAt)) / 3600;
     $requestTimeNorm = min(10, max(0, $ageInHours));
 
-    $score = (0.4 * $urgencyNorm)
-           + (0.3 * $teamSizeNorm)
-           + (0.2 * $fairnessNorm)
-           + (0.1 * $requestTimeNorm);
+    $score = ($wU * $urgencyNorm)
+           + ($wT * $teamSizeNorm)
+           + ($wF * $fairnessNorm)
+           + ($wR * $requestTimeNorm);
 
     return round($score, 2);
 }
@@ -248,11 +254,14 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
         $resource = get_resource($resourceId);
 
         // 1. Check if we should trigger the Round Robin splitting logic
-        $isLongBooking = (strtotime($end) - strtotime($start)) >= 14400; // >= 4 hours
+        $rrMinDuration  = (int) get_setting('rr_min_duration',  '14400'); // default 4 hrs
+        $rrSlotDuration = (int) get_setting('rr_slot_duration', '7200');  // default 2 hrs
+
+        $isLongBooking = (strtotime($end) - strtotime($start)) >= $rrMinDuration;
         $hasLongConflict = false;
         $mainConflict = null;
         foreach ($conflicts as $cb) {
-            if ((strtotime($cb['end_time']) - strtotime($cb['start_time'])) >= 14400) {
+            if ((strtotime($cb['end_time']) - strtotime($cb['start_time'])) >= $rrMinDuration) {
                 $hasLongConflict = true;
                 $mainConflict = $cb;
                 break;
@@ -307,9 +316,9 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                     ]);
                 }
 
-                // Divide overlap into 2-hour slots
+                // Divide overlap into configurable slots
                 $cursor = $overlapStart;
-                $slotDuration = 7200; // 2 hours
+                $slotDuration = $rrSlotDuration;
                 $slotIndex = 0;
 
                 $slotsAllocatedToA = [];
@@ -601,6 +610,19 @@ function create_notification(int $userId, ?int $bookingId, string $type, string 
         'INSERT INTO notifications (user_id, booking_id, type, message) VALUES (:user_id, :booking_id, :type, :message)'
     );
     $stmt->execute(['user_id' => $userId, 'booking_id' => $bookingId, 'type' => $type, 'message' => $message]);
+
+    // Mirror as email when PHPMailer is configured and enabled.
+    $subjects = [
+        'approval'     => '[SURAS] Booking Approved',
+        'rejection'    => '[SURAS] Booking Rejected',
+        'cancellation' => '[SURAS] Booking Cancelled',
+        'waitlist'     => '[SURAS] Added to Waitlist',
+        'alternative'  => '[SURAS] Alternative Slot Available',
+        'reminder'     => '[SURAS] Booking Reminder',
+        'submission'   => '[SURAS] Booking Submitted',
+    ];
+    $subject = $subjects[$type] ?? '[SURAS] Notification';
+    notify_user_by_email($userId, $subject, $message);
 }
 
 function get_notifications(int $userId, int $limit = 20): array

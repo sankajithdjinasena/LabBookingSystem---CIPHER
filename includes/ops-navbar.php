@@ -26,6 +26,7 @@ $isAdmin = $user['role'] === 'admin';
           <li><a href="users.php" class="<?php echo $active === 'admin_users' ? 'is-active' : ''; ?>">Users</a></li>
           <li><a href="bookings.php" class="<?php echo $active === 'admin_bookings' ? 'is-active' : ''; ?>">Bookings</a></li>
           <li><a href="reports.php" class="<?php echo $active === 'admin_reports' ? 'is-active' : ''; ?>">Reports</a></li>
+          <li><a href="settings.php" class="<?php echo $active === 'admin_settings' ? 'is-active' : ''; ?>">Settings</a></li>
         <?php else: ?>
           <li><a href="approvals.php" class="<?php echo $active === 'faculty_approvals' ? 'is-active' : ''; ?>">Approvals</a></li>
         <?php endif; ?>

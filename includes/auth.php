@@ -8,6 +8,14 @@ if (defined('SURAS_AUTH_LOADED')) {
 }
 define('SURAS_AUTH_LOADED', true);
 
+/** Escapes a string for safe HTML output. */
+if (!function_exists('e')) {
+    function e($value): string
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
 

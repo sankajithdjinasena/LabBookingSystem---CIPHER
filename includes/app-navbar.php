@@ -7,8 +7,7 @@
  */
 $active = $active ?? '';
 $unread = function_exists('unread_notification_count') ? unread_notification_count($user['id']) : 0;
-?>
-<?php
+
 $brandUrl = 'dashboard.php';
 if ($user['role'] === 'admin') {
     $brandUrl = 'admin/dashboard.php';
@@ -34,15 +33,15 @@ if ($user['role'] === 'admin') {
         <li><a href="notifications.php" class="<?php echo $active === 'notifications' ? 'is-active' : ''; ?>">
           Notifications<?php if ($unread > 0): ?> <span class="nav-badge"><?php echo $unread; ?></span><?php endif; ?>
         </a></li>
-        <?php if ($user['role'] === 'admin'): ?>
-          <li><a href="admin/dashboard.php" style="color:var(--amber); font-weight:600;">Admin Console</a></li>
-        <?php elseif ($user['role'] === 'faculty'): ?>
-          <li><a href="faculty/approvals.php" style="color:var(--amber); font-weight:600;">Faculty Review</a></li>
-        <?php endif; ?>
       </ul>
     </nav>
 
     <div class="nav-actions">
+      <?php if ($user['role'] === 'admin'): ?>
+        <a href="admin/dashboard.php" class="btn btn-ghost" style="font-size:13px;">Admin console</a>
+      <?php elseif ($user['role'] === 'faculty'): ?>
+        <a href="faculty/approvals.php" class="btn btn-ghost" style="font-size:13px;">Approvals</a>
+      <?php endif; ?>
       <div class="user-chip">
         <span class="user-chip-avatar"><?php echo e(strtoupper(substr($user['full_name'], 0, 1))); ?></span>
         <span class="user-chip-meta">

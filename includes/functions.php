@@ -68,9 +68,9 @@ function role_label(string $role): string
 {
     switch ($role) {
         case 'project_lead': return 'Project Team Leader';
-        case 'admin':         return 'Administrator';
-        case 'faculty':       return 'Faculty Member';
-        default:              return 'Student';
+        case 'admin':        return 'Administrator';
+        case 'faculty':      return 'Faculty Member';
+        default:             return 'Student';
     }
 }
 
@@ -98,9 +98,6 @@ function fetch_resources(string $category = '', string $search = ''): array
         $params['category'] = $category;
     }
     if ($search !== '') {
-        // Distinct placeholder names — real prepared statements
-        // (ATTR_EMULATE_PREPARES = false) don't allow reusing one
-        // named parameter more than once in the same query.
         $sql .= ' AND (name LIKE :search1 OR location LIKE :search2 OR description LIKE :search3)';
         $params['search1'] = '%' . $search . '%';
         $params['search2'] = '%' . $search . '%';
@@ -149,12 +146,12 @@ function calculate_fairness_score(int $userId): float
 
 function calculate_priority_score(int $urgency, int $teamSize, float $fairness, string $requestedAt): float
 {
-    $urgencyNorm  = max(0, min(10, $urgency * 2));   // urgency is 1–5 -> scale to 0–10
-    $teamSizeNorm = max(0, min(10, $teamSize));       // team size already roughly 0–10
-    $fairnessNorm = max(0, min(10, $fairness));
+    $urgencyNorm   = max(0, min(10, $urgency * 2));          // urgency is 1–5 -> scale to 0–10
+    $teamSizeNorm  = max(0, min(10, $teamSize));              // team size already roughly 0–10
+    $fairnessNorm  = max(0, min(10, $fairness));
 
-    // Older requests score slightly higher — a small first-come tiebreaker
-    // worth 10% of the total, capped at 10 hours of age.
+    // Earlier requests (relative to "now") score slightly higher — a small
+    // first-come tiebreaker worth 10% of the total. We calculate the age in hours.
     $ageInHours = (time() - strtotime($requestedAt)) / 3600;
     $requestTimeNorm = min(10, max(0, $ageInHours));
 
@@ -190,27 +187,6 @@ function has_overlapping_booking(int $resourceId, string $start, string $end, ?i
     return (int) $stmt->fetch()['overlaps'] > 0;
 }
 
-/** Same as has_overlapping_booking() but returns the conflicting rows themselves. */
-function get_overlapping_bookings(int $resourceId, string $start, string $end, ?int $excludeBookingId = null): array
-{
-    $pdo = get_db_connection();
-    $sql = "SELECT * FROM bookings
-            WHERE resource_id = :resource_id
-              AND status IN ('approved','pending')
-              AND start_time < :end_time
-              AND end_time > :start_time";
-    $params = ['resource_id' => $resourceId, 'start_time' => $start, 'end_time' => $end];
-
-    if ($excludeBookingId !== null) {
-        $sql .= ' AND id != :exclude_id';
-        $params['exclude_id'] = $excludeBookingId;
-    }
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    return $stmt->fetchAll();
-}
-
 /** Suggests the next free same-length slot on the same resource, same day, within working hours (08:00–20:00). */
 function suggest_alternative_slot(int $resourceId, string $start, string $end): ?array
 {
@@ -236,11 +212,29 @@ function suggest_alternative_slot(int $resourceId, string $start, string $end): 
 
 /* =====================================================================
    Booking creation — the conflict resolution pipeline described in
-   the project README: detect conflict, score, then either wait for
-   admin/faculty review (no conflict) or join the waitlist (conflict).
-   Nothing here ever sets status to 'approved' — only a human action
-   in admin/bookings.php or faculty/approvals.php does that.
+   the project README: detect conflict, score, allocate, suggest
+   alternative, or waitlist.
    ===================================================================== */
+
+function get_overlapping_bookings(int $resourceId, string $start, string $end, ?int $excludeBookingId = null): array
+{
+    $pdo = get_db_connection();
+    $sql = "SELECT * FROM bookings
+            WHERE resource_id = :resource_id
+              AND status IN ('approved','pending')
+              AND start_time < :end_time
+              AND end_time > :start_time";
+    $params = ['resource_id' => $resourceId, 'start_time' => $start, 'end_time' => $end];
+
+    if ($excludeBookingId !== null) {
+        $sql .= ' AND id != :exclude_id';
+        $params['exclude_id'] = $excludeBookingId;
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
 
 function create_booking(int $userId, int $resourceId, string $purpose, string $start, string $end, int $urgency, int $teamSize): array
 {
@@ -250,53 +244,289 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
 
     $pdo->beginTransaction();
     try {
-        $conflict = has_overlapping_booking($resourceId, $start, $end);
-        $status = $conflict ? 'waitlist' : 'pending';
+        $conflicts = get_overlapping_bookings($resourceId, $start, $end);
+        $resource = get_resource($resourceId);
 
-        $stmt = $pdo->prepare(
-            'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
-             VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
-        );
-        $stmt->execute([
-            'user_id'     => $userId,
-            'resource_id' => $resourceId,
-            'purpose'     => $purpose,
-            'start_time'  => $start,
-            'end_time'    => $end,
-            'urgency'     => $urgency,
-            'team_size'   => $teamSize,
-            'score'       => $score,
-            'status'      => $status,
-        ]);
-        $bookingId = (int) $pdo->lastInsertId();
-
-        $alternative = null;
-        if ($conflict) {
-            $waitStmt = $pdo->prepare(
-                'INSERT INTO waitlist (booking_id, resource_id, user_id, start_time, end_time)
-                 VALUES (:booking_id, :resource_id, :user_id, :start_time, :end_time)'
-            );
-            $waitStmt->execute([
-                'booking_id'  => $bookingId,
-                'resource_id' => $resourceId,
-                'user_id'     => $userId,
-                'start_time'  => $start,
-                'end_time'    => $end,
-            ]);
-
-            $alternative = suggest_alternative_slot($resourceId, $start, $end);
-
-            $message = 'Your booking request conflicts with an existing booking and has been placed on the waitlist. '
-                . ($alternative
-                    ? 'An alternative slot is available: ' . date('M j, g:i A', strtotime($alternative['start'])) . '–' . date('g:i A', strtotime($alternative['end'])) . '.'
-                    : 'No alternative slot was found today — you will be notified if the original slot frees up.');
-            create_notification($userId, $bookingId, $alternative ? 'alternative' : 'waitlist', $message);
-        } else {
-            create_notification($userId, $bookingId, 'submission', 'Your booking request has been submitted and is awaiting approval.');
+        // 1. Check if we should trigger the Round Robin splitting logic
+        $isLongBooking = (strtotime($end) - strtotime($start)) >= 14400; // >= 4 hours
+        $hasLongConflict = false;
+        $mainConflict = null;
+        foreach ($conflicts as $cb) {
+            if ((strtotime($cb['end_time']) - strtotime($cb['start_time'])) >= 14400) {
+                $hasLongConflict = true;
+                $mainConflict = $cb;
+                break;
+            }
         }
 
-        $pdo->commit();
-        return ['booking_id' => $bookingId, 'status' => $status, 'alternative' => $alternative];
+        $shouldSplit = ($isLongBooking || $hasLongConflict)
+                       && $mainConflict
+                       && in_array($resource['category'], ['lab', 'room'], true);
+
+        if ($shouldSplit) {
+            // Fair-Share Round Robin Scheduling Mechanism
+            $overlapStart = max(strtotime($start), strtotime($mainConflict['start_time']));
+            $overlapEnd = min(strtotime($end), strtotime($mainConflict['end_time']));
+
+            if ($overlapEnd > $overlapStart) {
+                $userAId = (int) $mainConflict['user_id'];
+                $scoreA = (float) $mainConflict['priority_score'];
+                $userBId = $userId;
+                $scoreB = $score;
+
+                // Adjust existing booking A's time range
+                $originalStart = strtotime($mainConflict['start_time']);
+                $originalEnd = strtotime($mainConflict['end_time']);
+
+                if ($originalStart < $overlapStart) {
+                    $updateA = $pdo->prepare("UPDATE bookings SET end_time = :end_time WHERE id = :id");
+                    $updateA->execute([
+                        'end_time' => date('Y-m-d H:i:s', $overlapStart),
+                        'id' => $mainConflict['id']
+                    ]);
+                } else {
+                    $updateA = $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = :id");
+                    $updateA->execute(['id' => $mainConflict['id']]);
+                }
+
+                if ($overlapEnd < $originalEnd) {
+                    $stmtA = $pdo->prepare(
+                        'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
+                         VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+                    );
+                    $stmtA->execute([
+                        'user_id'     => $userAId,
+                        'resource_id' => $resourceId,
+                        'purpose'     => $mainConflict['purpose'] . ' (Extended)',
+                        'start_time'  => date('Y-m-d H:i:s', $overlapEnd),
+                        'end_time'    => date('Y-m-d H:i:s', $originalEnd),
+                        'urgency'     => $mainConflict['urgency'],
+                        'team_size'   => $mainConflict['team_size'],
+                        'score'       => $scoreA,
+                        'status'      => 'approved',
+                    ]);
+                }
+
+                // Divide overlap into 2-hour slots
+                $cursor = $overlapStart;
+                $slotDuration = 7200; // 2 hours
+                $slotIndex = 0;
+
+                $slotsAllocatedToA = [];
+                $slotsAllocatedToB = [];
+
+                while ($cursor < $overlapEnd) {
+                    $currentSlotEnd = min($overlapEnd, $cursor + $slotDuration);
+
+                    // Alternate based on priority
+                    $assignedUser = ($scoreB >= $scoreA)
+                        ? (($slotIndex % 2 === 0) ? 'B' : 'A')
+                        : (($slotIndex % 2 === 0) ? 'A' : 'B');
+
+                    $assignedUserId = ($assignedUser === 'A') ? $userAId : $userBId;
+                    $assignedPurpose = ($assignedUser === 'A') ? $mainConflict['purpose'] : $purpose;
+                    $assignedUrgency = ($assignedUser === 'A') ? $mainConflict['urgency'] : $urgency;
+                    $assignedTeamSize = ($assignedUser === 'A') ? $mainConflict['team_size'] : $teamSize;
+                    $assignedScore = ($assignedUser === 'A') ? $scoreA : $scoreB;
+
+                    $stmtSlot = $pdo->prepare(
+                        'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
+                         VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+                    );
+                    $stmtSlot->execute([
+                        'user_id'     => $assignedUserId,
+                        'resource_id' => $resourceId,
+                        'purpose'     => $assignedPurpose . ' (Fair-Share Slot)',
+                        'start_time'  => date('Y-m-d H:i:s', $cursor),
+                        'end_time'    => date('Y-m-d H:i:s', $currentSlotEnd),
+                        'urgency'     => $assignedUrgency,
+                        'team_size'   => $assignedTeamSize,
+                        'score'       => $assignedScore,
+                        'status'      => 'approved',
+                    ]);
+
+                    $timeString = date('g:i A', $cursor) . '–' . date('g:i A', $currentSlotEnd);
+                    if ($assignedUser === 'A') {
+                        $slotsAllocatedToA[] = $timeString;
+                    } else {
+                        $slotsAllocatedToB[] = $timeString;
+                    }
+
+                    $cursor += $slotDuration;
+                    $slotIndex++;
+                }
+
+                // Non-overlapping parts of new booking B
+                $bStart = strtotime($start);
+                $bEnd = strtotime($end);
+                if ($bStart < $overlapStart) {
+                    $stmtPreB = $pdo->prepare(
+                        'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
+                         VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+                    );
+                    $stmtPreB->execute([
+                        'user_id'     => $userBId,
+                        'resource_id' => $resourceId,
+                        'purpose'     => $purpose . ' (Early Slot)',
+                        'start_time'  => date('Y-m-d H:i:s', $bStart),
+                        'end_time'    => date('Y-m-d H:i:s', $overlapStart),
+                        'urgency'     => $urgency,
+                        'team_size'   => $teamSize,
+                        'score'       => $scoreB,
+                        'status'      => 'approved',
+                    ]);
+                    $slotsAllocatedToB[] = date('g:i A', $bStart) . '–' . date('g:i A', $overlapStart);
+                }
+                if ($overlapEnd < $bEnd) {
+                    $stmtPostB = $pdo->prepare(
+                        'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
+                         VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+                    );
+                    $stmtPostB->execute([
+                        'user_id'     => $userBId,
+                        'resource_id' => $resourceId,
+                        'purpose'     => $purpose . ' (Late Slot)',
+                        'start_time'  => date('Y-m-d H:i:s', $overlapEnd),
+                        'end_time'    => date('Y-m-d H:i:s', $bEnd),
+                        'urgency'     => $urgency,
+                        'team_size'   => $teamSize,
+                        'score'       => $scoreB,
+                        'status'      => 'approved',
+                    ]);
+                    $slotsAllocatedToB[] = date('g:i A', $overlapEnd) . '–' . date('g:i A', $bEnd);
+                }
+
+                // Send notifications
+                $msgA = "Your booking for " . $resource['name'] . " conflicted with another request. It was split fairly using Round Robin. Approved slots: " . implode(', ', $slotsAllocatedToA) . ".";
+                create_notification($userAId, (int) $mainConflict['id'], 'alternative', $msgA);
+
+                $msgB = "Your booking for " . $resource['name'] . " was split fairly using Round Robin. Approved slots: " . implode(', ', $slotsAllocatedToB) . ".";
+                create_notification($userBId, null, 'alternative', $msgB);
+
+                $pdo->commit();
+                return ['booking_id' => 0, 'status' => 'approved', 'alternative' => null];
+            }
+        }
+
+        // 2. Normal Priority-Based Bumping
+        if (empty($conflicts)) {
+            $stmt = $pdo->prepare(
+                'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
+                 VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+            );
+            $stmt->execute([
+                'user_id'     => $userId,
+                'resource_id' => $resourceId,
+                'purpose'     => $purpose,
+                'start_time'  => $start,
+                'end_time'    => $end,
+                'urgency'     => $urgency,
+                'team_size'   => $teamSize,
+                'score'       => $score,
+                'status'      => 'approved',
+            ]);
+            $bookingId = (int) $pdo->lastInsertId();
+            create_notification($userId, $bookingId, 'approval', 'Your booking request has been approved automatically.');
+
+            $pdo->commit();
+            return ['booking_id' => $bookingId, 'status' => 'approved', 'alternative' => null];
+        } else {
+            $hasHigherPriority = true;
+            foreach ($conflicts as $cb) {
+                if ($score <= (float) $cb['priority_score']) {
+                    $hasHigherPriority = false;
+                    break;
+                }
+            }
+
+            if ($hasHigherPriority) {
+                // Bump conflicts to waitlist
+                foreach ($conflicts as $cb) {
+                    $updateStmt = $pdo->prepare("UPDATE bookings SET status = 'waitlist' WHERE id = :id");
+                    $updateStmt->execute(['id' => $cb['id']]);
+
+                    $waitStmt = $pdo->prepare(
+                        'INSERT INTO waitlist (booking_id, resource_id, user_id, start_time, end_time)
+                         VALUES (:booking_id, :resource_id, :user_id, :start_time, :end_time)'
+                    );
+                    $waitStmt->execute([
+                        'booking_id'  => $cb['id'],
+                        'resource_id' => $cb['resource_id'],
+                        'user_id'     => $cb['user_id'],
+                        'start_time'  => $cb['start_time'],
+                        'end_time'    => $cb['end_time'],
+                    ]);
+
+                    $cbAlt = suggest_alternative_slot((int) $cb['resource_id'], $cb['start_time'], $cb['end_time']);
+                    $cbMsg = "Your booking for " . $resource['name'] . " on " . date('M j', strtotime($cb['start_time'])) . " was demoted to the waitlist because a higher priority request was approved. "
+                        . ($cbAlt
+                            ? "Alternative slot available: " . date('g:i A', strtotime($cbAlt['start'])) . "–" . date('g:i A', strtotime($cbAlt['end'])) . "."
+                            : "No alternative slot was found today.");
+                    create_notification((int) $cb['user_id'], (int) $cb['id'], $cbAlt ? 'alternative' : 'waitlist', $cbMsg);
+                }
+
+                $stmt = $pdo->prepare(
+                    'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
+                     VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+                );
+                $stmt->execute([
+                    'user_id'     => $userId,
+                    'resource_id' => $resourceId,
+                    'purpose'     => $purpose,
+                    'start_time'  => $start,
+                    'end_time'    => $end,
+                    'urgency'     => $urgency,
+                    'team_size'   => $teamSize,
+                    'score'       => $score,
+                    'status'      => 'approved',
+                ]);
+                $bookingId = (int) $pdo->lastInsertId();
+                create_notification($userId, $bookingId, 'approval', 'Your booking request overrode an existing lower-priority booking.');
+
+                $pdo->commit();
+                return ['booking_id' => $bookingId, 'status' => 'approved', 'alternative' => null];
+            } else {
+                // Place new request on waitlist
+                $stmt = $pdo->prepare(
+                    'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
+                     VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+                );
+                $stmt->execute([
+                    'user_id'     => $userId,
+                    'resource_id' => $resourceId,
+                    'purpose'     => $purpose,
+                    'start_time'  => $start,
+                    'end_time'    => $end,
+                    'urgency'     => $urgency,
+                    'team_size'   => $teamSize,
+                    'score'       => $score,
+                    'status'      => 'waitlist',
+                ]);
+                $bookingId = (int) $pdo->lastInsertId();
+
+                $waitStmt = $pdo->prepare(
+                    'INSERT INTO waitlist (booking_id, resource_id, user_id, start_time, end_time)
+                     VALUES (:booking_id, :resource_id, :user_id, :start_time, :end_time)'
+                );
+                $waitStmt->execute([
+                    'booking_id'  => $bookingId,
+                    'resource_id' => $resourceId,
+                    'user_id'     => $userId,
+                    'start_time'  => $start,
+                    'end_time'    => $end,
+                ]);
+
+                $alternative = suggest_alternative_slot($resourceId, $start, $end);
+                $message = 'Your booking request conflicted with a higher-priority request and has been waitlisted. '
+                    . ($alternative
+                        ? 'Alternative slot: ' . date('M j, g:i A', strtotime($alternative['start'])) . '–' . date('g:i A', strtotime($alternative['end'])) . '.'
+                        : 'No alternative slot found today.');
+                create_notification($userId, $bookingId, $alternative ? 'alternative' : 'waitlist', $message);
+
+                $pdo->commit();
+                return ['booking_id' => $bookingId, 'status' => 'waitlist', 'alternative' => $alternative];
+            }
+        }
     } catch (Throwable $e) {
         $pdo->rollBack();
         throw $e;
@@ -322,8 +552,6 @@ function cancel_booking(int $bookingId, int $userId): bool
         create_notification($userId, $bookingId, 'cancellation', 'Your booking has been cancelled.');
 
         // Promote the earliest-priority waitlisted request for the freed slot, if any.
-        // It moves to 'pending', not straight to 'approved' — a human still
-        // has to confirm it, same as any other request.
         if ($booking['status'] === 'approved') {
             $promote = $pdo->prepare(
                 "SELECT * FROM bookings
@@ -339,7 +567,7 @@ function cancel_booking(int $bookingId, int $userId): bool
             $next = $promote->fetch();
 
             if ($next) {
-                $approve = $pdo->prepare("UPDATE bookings SET status = 'pending' WHERE id = :id");
+                $approve = $pdo->prepare("UPDATE bookings SET status = 'approved' WHERE id = :id");
                 $approve->execute(['id' => $next['id']]);
 
                 $deleteWait = $pdo->prepare("DELETE FROM waitlist WHERE booking_id = :id");
@@ -348,8 +576,8 @@ function cancel_booking(int $bookingId, int $userId): bool
                 create_notification(
                     (int) $next['user_id'],
                     (int) $next['id'],
-                    'waitlist',
-                    'A slot you were waitlisted for just opened up — your request now needs final approval.'
+                    'approval',
+                    'A slot you were waitlisted for just opened up — your booking is now confirmed.'
                 );
             }
         }
@@ -431,7 +659,7 @@ function dashboard_stats(int $userId): array
     $stmt = $pdo->prepare(
         "SELECT
             SUM(CASE WHEN status = 'pending'  THEN 1 ELSE 0 END) AS pending,
-            SUM(CASE WHEN status IN ('approved','pending') AND DATE(start_time) = CURDATE() THEN 1 ELSE 0 END) AS today,
+            SUM(CASE WHEN status = 'approved' AND DATE(start_time) = CURDATE() THEN 1 ELSE 0 END) AS today,
             SUM(CASE WHEN status = 'waitlist' THEN 1 ELSE 0 END) AS waitlisted,
             COUNT(*) AS total
          FROM bookings WHERE user_id = :user_id"

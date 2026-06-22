@@ -38,12 +38,15 @@ $justRegistered = isset($_GET['welcome']);
     <?php endif; ?>
 
     <?php if (isset($_GET['booked'])): ?>
-      <div class="banner <?php echo $_GET['booked'] === 'waitlist' ? 'banner-warn' : 'banner-info'; ?>">
-        <span><?php echo $_GET['booked'] === 'waitlist' ? '⏳' : '📝'; ?></span>
+      <?php $bs = $_GET['booked']; ?>
+      <div class="banner <?php echo $bs === 'waitlist' ? 'banner-warn' : 'banner-success'; ?>">
+        <span><?php echo $bs === 'waitlist' ? '⏳' : '✓'; ?></span>
         <span>
-          <?php echo $_GET['booked'] === 'waitlist'
-            ? 'Your booking conflicted with an existing one and was added to the waitlist — check Notifications for an alternative slot.'
-            : 'Your booking request has been submitted and is awaiting approval.'; ?>
+          <?php
+            if ($bs === 'approved')       echo 'Your booking was approved automatically.';
+            elseif ($bs === 'waitlist')   echo 'Your booking conflicted with a higher-priority request and was added to the waitlist — check Notifications for an alternative slot.';
+            else                          echo 'Your booking was processed — check My Bookings for details.';
+          ?>
         </span>
       </div>
     <?php endif; ?>

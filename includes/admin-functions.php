@@ -63,8 +63,9 @@ function get_all_users(string $search = '', string $role = '', string $status = 
     $params = [];
 
     if ($search !== '') {
-        $sql .= ' AND (full_name LIKE :search OR email LIKE :search)';
-        $params['search'] = '%' . $search . '%';
+        $sql .= ' AND (full_name LIKE :search1 OR email LIKE :search2)';
+        $params['search1'] = '%' . $search . '%';
+        $params['search2'] = '%' . $search . '%';
     }
     if ($role !== '' && $role !== 'all') {
         $sql .= ' AND role = :role';
@@ -166,16 +167,58 @@ function get_bookings_for_review(string $status = 'pending', string $department 
 function approve_booking_admin(int $bookingId): bool
 {
     $pdo = get_db_connection();
-    $stmt = $pdo->prepare('SELECT user_id FROM bookings WHERE id = :id');
+    $stmt = $pdo->prepare('SELECT * FROM bookings WHERE id = :id');
     $stmt->execute(['id' => $bookingId]);
     $booking = $stmt->fetch();
     if (!$booking) return false;
 
-    $update = $pdo->prepare("UPDATE bookings SET status = 'approved' WHERE id = :id");
-    $update->execute(['id' => $bookingId]);
+    $resourceId = (int) $booking['resource_id'];
+    $start = $booking['start_time'];
+    $end = $booking['end_time'];
 
-    create_notification((int) $booking['user_id'], $bookingId, 'approval', 'Your booking request has been approved.');
-    return true;
+    $pdo->beginTransaction();
+    try {
+        $conflicts = get_overlapping_bookings($resourceId, $start, $end, $bookingId);
+        $resource = get_resource($resourceId);
+
+        foreach ($conflicts as $cb) {
+            $updateStmt = $pdo->prepare("UPDATE bookings SET status = 'waitlist' WHERE id = :id");
+            $updateStmt->execute(['id' => $cb['id']]);
+
+            $waitStmt = $pdo->prepare(
+                'INSERT INTO waitlist (booking_id, resource_id, user_id, start_time, end_time)
+                 VALUES (:booking_id, :resource_id, :user_id, :start_time, :end_time)'
+            );
+            $waitStmt->execute([
+                'booking_id'  => $cb['id'],
+                'resource_id' => $cb['resource_id'],
+                'user_id'     => $cb['user_id'],
+                'start_time'  => $cb['start_time'],
+                'end_time'    => $cb['end_time'],
+            ]);
+
+            $cbAlt = suggest_alternative_slot((int) $cb['resource_id'], $cb['start_time'], $cb['end_time']);
+            $cbMsg = "Your booking for " . $resource['name'] . " on " . date('M j', strtotime($cb['start_time'])) . " was demoted to the waitlist because a conflicting request was approved by admin/faculty. "
+                . ($cbAlt
+                    ? "Alternative slot available: " . date('g:i A', strtotime($cbAlt['start'])) . "–" . date('g:i A', strtotime($cbAlt['end'])) . "."
+                    : "No alternative slot was found today.");
+            create_notification((int) $cb['user_id'], (int) $cb['id'], $cbAlt ? 'alternative' : 'waitlist', $cbMsg);
+        }
+
+        $update = $pdo->prepare("UPDATE bookings SET status = 'approved' WHERE id = :id");
+        $update->execute(['id' => $bookingId]);
+
+        $deleteWait = $pdo->prepare("DELETE FROM waitlist WHERE booking_id = :id");
+        $deleteWait->execute(['id' => $bookingId]);
+
+        create_notification((int) $booking['user_id'], $bookingId, 'approval', 'Your booking request has been approved.');
+
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
 }
 
 function reject_booking_admin(int $bookingId, string $reason = ''): bool
@@ -186,12 +229,23 @@ function reject_booking_admin(int $bookingId, string $reason = ''): bool
     $booking = $stmt->fetch();
     if (!$booking) return false;
 
-    $update = $pdo->prepare("UPDATE bookings SET status = 'rejected' WHERE id = :id");
-    $update->execute(['id' => $bookingId]);
+    $pdo->beginTransaction();
+    try {
+        $update = $pdo->prepare("UPDATE bookings SET status = 'rejected' WHERE id = :id");
+        $update->execute(['id' => $bookingId]);
 
-    $message = 'Your booking request was rejected.' . ($reason !== '' ? ' Reason: ' . $reason : '');
-    create_notification((int) $booking['user_id'], $bookingId, 'rejection', $message);
-    return true;
+        $deleteWait = $pdo->prepare("DELETE FROM waitlist WHERE booking_id = :id");
+        $deleteWait->execute(['id' => $bookingId]);
+
+        $message = 'Your booking request was rejected.' . ($reason !== '' ? ' Reason: ' . $reason : '');
+        create_notification((int) $booking['user_id'], $bookingId, 'rejection', $message);
+
+        $pdo->commit();
+        return true;
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
 }
 
 /* =====================================================================

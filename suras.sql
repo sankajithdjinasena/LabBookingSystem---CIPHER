@@ -214,8 +214,7 @@ CREATE TABLE IF NOT EXISTS `settings` (
   `label` varchar(120) NOT NULL,
   `description` varchar(300) DEFAULT NULL,
   PRIMARY KEY (`setting_key`)
-<<<<<<< HEAD
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `settings`
@@ -249,9 +248,9 @@ CREATE TABLE IF NOT EXISTS `support_messages` (
   PRIMARY KEY (`id`),
   KEY `fk_support_sender` (`sender_id`),
   KEY `fk_support_receiver` (`receiver_id`)
-<<<<<<< HEAD
-) ENGINE=MyISAM AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
 -- Dumping data for table `support_messages`
 --
 

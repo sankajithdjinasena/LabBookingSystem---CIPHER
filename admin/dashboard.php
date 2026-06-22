@@ -94,6 +94,7 @@ $activity = recent_activity(8);
         <div class="panel">
           <div class="panel-head"><h2>Quick links</h2></div>
           <div style="display:flex; flex-direction:column; gap:10px;">
+            <a href="support.php" class="btn btn-ghost btn-block" style="background:#fff3e0; border-color:#ffb74d;">Support Desk (Live Chat)</a>
             <a href="resources.php" class="btn btn-ghost btn-block">Manage resources</a>
             <a href="users.php" class="btn btn-ghost btn-block">Manage users</a>
             <a href="bookings.php" class="btn btn-ghost btn-block">Review bookings</a>

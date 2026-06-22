@@ -20,19 +20,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bookingId = (int) ($_POST['booking_id'] ?? 0);
         $actionType = $_POST['action'] ?? '';
 
-        if ($actionType === 'approve') {
-            approve_booking_admin($bookingId);
-            $message = 'success:Booking approved.';
-        } elseif ($actionType === 'reject') {
-            reject_booking_admin($bookingId, trim($_POST['reason'] ?? ''));
-            $message = 'success:Booking rejected.';
+        // Security check for Faculty: Ensure the booking belongs to their department
+        $canApprove = true;
+        if ($user['role'] === 'faculty') {
+            $pdo = get_db_connection();
+            $stmt = $pdo->prepare('SELECT u.department FROM bookings b JOIN users u ON b.user_id = u.id WHERE b.id = :id');
+            $stmt->execute(['id' => $bookingId]);
+            $bDept = $stmt->fetchColumn();
+            if ($bDept !== $user['department']) {
+                $canApprove = false;
+                $message = 'error:You can only manage bookings from your own department.';
+            }
+        }
+
+        if ($canApprove) {
+            if ($actionType === 'approve') {
+                approve_booking_admin($bookingId);
+                $message = 'success:Booking approved.';
+            } elseif ($actionType === 'reject') {
+                reject_booking_admin($bookingId, trim($_POST['reason'] ?? ''));
+                $message = 'success:Booking rejected.';
+            }
         }
     }
 }
 
-// Faculty see their own department by default; they can switch to "All".
-$scope = $_GET['scope'] ?? 'department';
-$departmentFilter = ($scope === 'department' && $user['role'] === 'faculty') ? ($user['department'] ?? '') : '';
+// Faculty MUST only see their own department. Admin can see all.
+if ($user['role'] === 'faculty') {
+    $scope = 'department';
+    $departmentFilter = $user['department'] ?? '';
+} else {
+    $scope = $_GET['scope'] ?? 'all';
+    $departmentFilter = ($scope === 'department') ? ($user['department'] ?? '') : '';
+}
 
 $statusFilter = $_GET['status'] ?? 'pending';
 $bookings = get_bookings_for_review($statusFilter, $departmentFilter);
@@ -68,10 +88,10 @@ $filters = ['pending' => 'Pending', 'approved' => 'Approved', 'waitlist' => 'Wai
           <?php endif; ?>
         </p>
       </div>
-      <?php if ($user['role'] === 'faculty' && $user['department']): ?>
+      <?php if ($user['role'] === 'admin'): ?>
         <div class="chip-group">
-          <a class="chip <?php echo $scope === 'department' ? 'is-active' : ''; ?>" href="approvals.php?scope=department&status=<?php echo e($statusFilter); ?>">My department</a>
           <a class="chip <?php echo $scope === 'all' ? 'is-active' : ''; ?>" href="approvals.php?scope=all&status=<?php echo e($statusFilter); ?>">All departments</a>
+          <a class="chip <?php echo $scope === 'department' ? 'is-active' : ''; ?>" href="approvals.php?scope=department&status=<?php echo e($statusFilter); ?>">My department</a>
         </div>
       <?php endif; ?>
     </div>

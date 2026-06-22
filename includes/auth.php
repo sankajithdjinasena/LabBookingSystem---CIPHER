@@ -63,11 +63,11 @@ function require_role(array $roles, int $depth = 0): void
 /** Where each role lands after a successful login. */
 function dashboard_for_role(string $role): string
 {
-    return match ($role) {
-        'admin'   => 'admin/dashboard.php',
-        'faculty' => 'faculty/approvals.php',
-        default   => 'dashboard.php', // student, project_lead
-    };
+    switch ($role) {
+        case 'admin':   return 'admin/dashboard.php';
+        case 'faculty': return 'faculty/approvals.php';
+        default:        return 'dashboard.php'; // student, project_lead
+    }
 }
 
 /**

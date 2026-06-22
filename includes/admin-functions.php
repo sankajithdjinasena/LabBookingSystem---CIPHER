@@ -213,6 +213,33 @@ function approve_booking_admin(int $bookingId): bool
 
         create_notification((int) $booking['user_id'], $bookingId, 'approval', 'Your booking request has been approved.');
 
+        // Schedule future notifications (1 hour before start, and at the end time)
+        $reminderTime = date('Y-m-d H:i:s', strtotime($start) - 3600);
+        $stmtRemind = $pdo->prepare(
+            'INSERT INTO notifications (user_id, booking_id, type, message, created_at)
+             VALUES (:user_id, :booking_id, :type, :message, :created_at)'
+        );
+        $stmtRemind->execute([
+            'user_id' => $booking['user_id'],
+            'booking_id' => $bookingId,
+            'type' => 'reminder',
+            'message' => "Reminder: Your booking starts in 1 hour.",
+            'created_at' => $reminderTime
+        ]);
+
+        $endTime = date('Y-m-d H:i:s', strtotime($end));
+        $stmtEnd = $pdo->prepare(
+            'INSERT INTO notifications (user_id, booking_id, type, message, created_at)
+             VALUES (:user_id, :booking_id, :type, :message, :created_at)'
+        );
+        $stmtEnd->execute([
+            'user_id' => $booking['user_id'],
+            'booking_id' => $bookingId,
+            'type' => 'reminder',
+            'message' => "Your booking has ended. Thank you for using SURAS!",
+            'created_at' => $endTime
+        ]);
+
         $pdo->commit();
         return true;
     } catch (Throwable $e) {

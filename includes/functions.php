@@ -15,15 +15,20 @@ define('SURAS_FUNCTIONS_LOADED', true);
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/mailer.php';
+
+// Ensure the notifications directory exists
 
 /* =====================================================================
    Formatting helpers
    ===================================================================== */
 
-function e(?string $value): string
-{
-    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+if (!function_exists('e')) {
+    function e(?string $value): string
+    {
+        return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+    }
 }
 
 function category_label(string $category): string
@@ -158,6 +163,9 @@ function calculate_priority_score(int $urgency, int $teamSize, float $fairness, 
     $teamSizeNorm = max(0, min(10, $teamSize));
     $fairnessNorm = max(0, min(10, $fairness));
 
+    // Earlier requests (relative to "now") score slightly higher — a small
+    // first-come tiebreaker worth 10% of the total. We calculate the age in hours.
+
     $ageInHours      = (time() - strtotime($requestedAt)) / 3600;
     $requestTimeNorm = min(10, max(0, $ageInHours));
 
@@ -242,6 +250,7 @@ function get_overlapping_bookings(int $resourceId, string $start, string $end, ?
     return $stmt->fetchAll();
 }
 
+
 function create_booking(int $userId, int $resourceId, string $purpose, string $start, string $end, int $urgency, int $teamSize): array
 {
     $pdo = get_db_connection();
@@ -250,7 +259,25 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
 
     $pdo->beginTransaction();
     try {
+        $userStmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+        $userStmt->execute([$userId]);
+        $role = $userStmt->fetchColumn();
+        
+        $currentUser = function_exists('current_user') && is_logged_in() ? current_user() : null;
+        $activeRole = $currentUser ? $currentUser['role'] : $role;
+        $isAdminOverride = in_array($activeRole, ['admin', 'faculty', 'project_lead']);
+
         $conflicts = get_overlapping_bookings($resourceId, $start, $end);
+        
+        if ($isAdminOverride && !empty($conflicts)) {
+            // Cancel all overlapping bookings to make way for the admin/faculty booking
+            foreach ($conflicts as $cb) {
+                $cancelStmt = $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?");
+                $cancelStmt->execute([$cb['id']]);
+            }
+            $conflicts = []; // Clear conflicts so it proceeds normally without splitting
+        }
+
         $resource = get_resource($resourceId);
 
         // 1. Check if we should trigger the Round Robin splitting logic
@@ -432,17 +459,25 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                 'urgency'     => $urgency,
                 'team_size'   => $teamSize,
                 'score'       => $score,
-                'status'      => 'approved',
+                'status'      => $isAdminOverride ? 'approved' : 'pending',
             ]);
             $bookingId = (int) $pdo->lastInsertId();
-            create_notification($userId, $bookingId, 'approval', 'Your booking request has been approved automatically.');
+            if ($isAdminOverride) {
+                create_notification($userId, $bookingId, 'approval', 'Your resource booking request has been approved by administrator override.');
+            } else {
+                create_notification($userId, $bookingId, 'submission', 'Your booking request has been submitted and is pending faculty/admin approval.');
+            }
 
             $pdo->commit();
-            return ['booking_id' => $bookingId, 'status' => 'approved', 'alternative' => null];
+            return ['booking_id' => $bookingId, 'status' => $isAdminOverride ? 'approved' : 'pending', 'alternative' => null];
         } else {
             $hasHigherPriority = true;
             foreach ($conflicts as $cb) {
-                if ($score <= (float) $cb['priority_score']) {
+                // Early-Bird Immunity: If the existing booking was made > 7 days before its start time, it is locked.
+                $daysInAdvance = (strtotime($cb['start_time']) - strtotime($cb['created_at'])) / 86400;
+                $isImmune = ($daysInAdvance >= 7);
+
+                if ($score <= (float) $cb['priority_score'] || $isImmune) {
                     $hasHigherPriority = false;
                     break;
                 }
@@ -622,13 +657,26 @@ function create_notification(int $userId, ?int $bookingId, string $type, string 
         'submission'   => '[SURAS] Booking Submitted',
     ];
     $subject = $subjects[$type] ?? '[SURAS] Notification';
+    if (!function_exists('notify_user_by_email')) {
+        function notify_user_by_email($userId, $subject, $message) {
+            $pdo = get_db_connection();
+            $stmt = $pdo->prepare("SELECT email, full_name FROM users WHERE id = :id");
+            $stmt->execute(['id' => $userId]);
+            $user = $stmt->fetch();
+            if ($user && !empty($user['email'])) {
+                $toName = trim($user['full_name']);
+                send_email_notification($user['email'], $toName, $subject, $message);
+            }
+        }
+    }
+
     notify_user_by_email($userId, $subject, $message);
 }
 
 function get_notifications(int $userId, int $limit = 20): array
 {
     $pdo = get_db_connection();
-    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = :user_id ORDER BY created_at DESC LIMIT :limit');
+    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = :user_id AND created_at <= NOW() ORDER BY created_at DESC LIMIT :limit');
     $stmt->bindValue('user_id', $userId, PDO::PARAM_INT);
     $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
@@ -638,7 +686,7 @@ function get_notifications(int $userId, int $limit = 20): array
 function unread_notification_count(int $userId): int
 {
     $pdo = get_db_connection();
-    $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = :user_id AND is_read = 0');
+    $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = :user_id AND is_read = 0 AND created_at <= NOW()');
     $stmt->execute(['user_id' => $userId]);
     return (int) $stmt->fetch()['c'];
 }

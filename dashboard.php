@@ -12,6 +12,11 @@ $active = 'dashboard';
 
 $stats = dashboard_stats($user['id']);
 $recentBookings = array_slice(get_user_bookings($user['id']), 0, 5);
+
+$pdo = get_db_connection();
+$qbStmt = $pdo->prepare("SELECT r.id, r.name, r.category FROM bookings b JOIN resources r ON b.resource_id = r.id WHERE b.user_id = :uid GROUP BY r.id, r.name, r.category ORDER BY COUNT(b.id) DESC LIMIT 1");
+$qbStmt->execute(['uid' => $user['id']]);
+$quickBookResource = $qbStmt->fetch();
 $recentNotifications = get_notifications($user['id'], 4);
 $justRegistered = isset($_GET['welcome']);
 ?>
@@ -22,6 +27,7 @@ $justRegistered = isset($_GET['welcome']);
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — SURAS</title>
 <link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/assistant.css">
 </head>
 <body>
 
@@ -58,6 +64,16 @@ $justRegistered = isset($_GET['welcome']);
       </div>
       <a href="resources.php" class="btn btn-amber">Book a resource</a>
     </div>
+
+    <?php if ($quickBookResource): ?>
+    <div class="quick-book-card">
+      <div class="quick-book-info">
+        <h3>Quick Book: <?php echo e($quickBookResource['name']); ?></h3>
+        <p>Book your most used resource instantly for the next available slot.</p>
+      </div>
+      <a href="booking.php?resource_id=<?php echo (int)$quickBookResource['id']; ?>" class="btn btn-amber" style="white-space:nowrap; margin-left:20px;">Book Now</a>
+    </div>
+    <?php endif; ?>
 
     <div class="stat-grid">
       <div class="stat-card">
@@ -152,9 +168,12 @@ $justRegistered = isset($_GET['welcome']);
       </div>
     </div>
 
+
+
   </div>
 </main>
 
-<script src="assets/js/main.js"></script>
+<script src="assets/js/main.js?v=<?php echo time(); ?>"></script>
+<script src="assets/js/assistant.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

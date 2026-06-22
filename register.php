@@ -11,16 +11,20 @@ if (is_logged_in()) {
     exit;
 }
 
+$pdo = get_db_connection();
+$departments = $pdo->query('SELECT name FROM departments ORDER BY name')->fetchAll(PDO::FETCH_COLUMN);
+
 $error = '';
-$old = ['full_name' => '', 'email' => '', 'role' => 'student', 'department' => ''];
+$old = ['full_name' => '', 'email' => '', 'role' => 'student', 'department' => '', 'university_id' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $old['full_name']  = trim($_POST['full_name'] ?? '');
-    $old['email']      = trim($_POST['email'] ?? '');
-    $old['role']       = $_POST['role'] ?? 'student';
-    $old['department'] = trim($_POST['department'] ?? '');
-    $password         = (string) ($_POST['password'] ?? '');
-    $confirm          = (string) ($_POST['confirm_password'] ?? '');
+    $old['full_name']     = trim($_POST['full_name'] ?? '');
+    $old['email']         = trim($_POST['email'] ?? '');
+    $old['role']          = $_POST['role'] ?? 'student';
+    $old['department']    = trim($_POST['department'] ?? '');
+    $old['university_id'] = trim($_POST['university_id'] ?? '');
+    $password             = (string) ($_POST['password'] ?? '');
+    $confirm              = (string) ($_POST['confirm_password'] ?? '');
 
     $allowedRoles = ['student', 'project_lead', 'faculty']; // admin accounts are provisioned separately
 
@@ -36,6 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Those passwords don't match.";
     } elseif (!in_array($old['role'], $allowedRoles, true)) {
         $error = 'Please choose a valid account type.';
+    } elseif ($old['role'] === 'student' && $old['university_id'] === '') {
+        $error = 'Students must provide their University Registration ID.';
+    } elseif ($old['department'] === '') {
+        $error = 'Please select a department / faculty.';
     } elseif (!isset($_POST['agree_terms'])) {
         $error = 'Please agree to the Terms of Service and Privacy Policy to continue.';
     } else {
@@ -47,14 +55,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'An account with that email already exists. Try signing in instead.';
         } else {
             $insert = $pdo->prepare(
-                'INSERT INTO users (full_name, email, password_hash, role, department, status)
-                 VALUES (:full_name, :email, :password_hash, :role, :department, :status)'
+                'INSERT INTO users (full_name, email, password_hash, role, university_id, department, status)
+                 VALUES (:full_name, :email, :password_hash, :role, :university_id, :department, :status)'
             );
             $insert->execute([
                 'full_name'     => $old['full_name'],
                 'email'         => $old['email'],
                 'password_hash' => password_hash($password, PASSWORD_DEFAULT),
                 'role'          => $old['role'],
+                'university_id' => $old['university_id'] !== '' ? $old['university_id'] : null,
                 'department'    => $old['department'] !== '' ? $old['department'] : null,
                 // Faculty accounts are flagged for admin review before they gain reviewer access.
                 'status'        => 'active',
@@ -62,12 +71,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $userId = (int) $pdo->lastInsertId();
             login_user([
-                'id'         => $userId,
-                'full_name'  => $old['full_name'],
-                'email'      => $old['email'],
-                'role'       => $old['role'],
-                'department' => $old['department'],
-                'status'     => 'active',
+                'id'            => $userId,
+                'full_name'     => $old['full_name'],
+                'email'         => $old['email'],
+                'role'          => $old['role'],
+                'university_id' => $old['university_id'],
+                'department'    => $old['department'],
+                'status'        => 'active',
             ]);
 
             header('Location: ' . dashboard_for_role($old['role']) . '?welcome=1');
@@ -160,12 +170,24 @@ $csrf_token = $_SESSION['csrf_token'];
             </select>
           </div>
 
-          <div class="field">
-            <label for="department">Department <span style="color:var(--ink-soft); font-weight:400;">(optional)</span></label>
+          <div class="field field-full">
+            <label for="university_id">University ID / Registration No. <span style="color:var(--ink-soft); font-weight:400;">(Required for students)</span></label>
             <div class="field-control">
-              <input type="text" id="department" name="department" placeholder="Computer Science"
-                     value="<?php echo e($old['department']); ?>">
+              <input type="text" id="university_id" name="university_id" placeholder="e.g., 22CDS0439"
+                     value="<?php echo e($old['university_id']); ?>">
             </div>
+          </div>
+
+          <div class="field">
+            <label for="department">Department / Faculty</label>
+            <select id="department" name="department" required>
+              <option value="">-- Select Department --</option>
+              <?php foreach ($departments as $dept): ?>
+                <option value="<?php echo e($dept); ?>" <?php echo $old['department'] === $dept ? 'selected' : ''; ?>>
+                  <?php echo e($dept); ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
           </div>
 
           <div class="field">

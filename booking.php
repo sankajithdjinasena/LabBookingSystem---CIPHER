@@ -53,9 +53,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($old['urgency'] < 1 || $old['urgency'] > 5) {
         $error = 'Urgency must be between 1 and 5.';
     } else {
-        $result = create_booking($user['id'], $resource['id'], $old['purpose'], $start, $end, $old['urgency'], $old['team_size']);
-        header('Location: dashboard.php?booked=' . $result['status']);
-        exit;
+        $durationSecs = strtotime($end) - strtotime($start);
+        $isAdminOverride = in_array($user['role'], ['admin', 'faculty', 'project_lead']);
+        $maxDur = $isAdminOverride ? 48 * 3600 : 12 * 3600;
+
+        if ($durationSecs > $maxDur) {
+            if ($isAdminOverride) {
+                $error = 'Even as an administrator, you cannot book a resource for more than 48 hours continuously.';
+            } else {
+                $error = 'Bookings longer than 12 hours require administrative approval. Please contact the Support Desk.';
+            }
+        } else {
+            $result = create_booking($user['id'], $resource['id'], $old['purpose'], $start, $end, $old['urgency'], $old['team_size']);
+            header('Location: dashboard.php?booked=' . $result['status']);
+            exit;
+        }
     }
 }
 
@@ -159,9 +171,60 @@ $csrf_token = $_SESSION['csrf_token'];
             </div>
           </div>
 
-          <button type="submit" class="btn btn-amber" style="margin-top: 10px;">Submit booking request</button>
+          <div id="durationWarning" style="display:none; margin-top:15px; padding:15px; background:#fff3e0; border-left:4px solid var(--amber); border-radius:4px;">
+              <p style="margin:0; font-size:14px; color:#e65100; font-weight:600;">Booking exceeds 12 hours</p>
+              <p style="margin:6px 0 10px; font-size:13px; color:#555;">You are attempting to book a slot that exceeds the 12-hour automated limit. To proceed, please contact the Support Desk to arrange an extended session with Faculty.</p>
+              <a href="support.php" class="btn btn-amber" style="text-decoration:none; display:inline-block; font-size:13px; padding:6px 12px;">Go to Support Desk</a>
+          </div>
+
+          <button type="submit" id="submitBtn" class="btn btn-amber" style="margin-top: 15px;">Submit booking request</button>
         </form>
       </div>
+
+      <script>
+      document.addEventListener('DOMContentLoaded', () => {
+          const startTimeInput = document.getElementById('start_time');
+          const endTimeInput = document.getElementById('end_time');
+          const dateInput = document.getElementById('date');
+          const submitBtn = document.getElementById('submitBtn');
+          const warningBox = document.getElementById('durationWarning');
+          const isAdminOverride = <?php echo in_array($user['role'], ['admin', 'faculty', 'project_lead']) ? 'true' : 'false'; ?>;
+
+          function checkDuration() {
+              if (!startTimeInput.value || !endTimeInput.value || !dateInput.value) return;
+
+              const start = new Date(dateInput.value + 'T' + startTimeInput.value);
+              const end = new Date(dateInput.value + 'T' + endTimeInput.value);
+              let diffHours = (end - start) / (1000 * 60 * 60);
+
+              // Handle overnight bookings if start > end on the same day (simplified)
+              if (diffHours < 0) diffHours += 24;
+
+              const maxLimit = isAdminOverride ? 48 : 12;
+
+              if (diffHours > maxLimit) {
+                  submitBtn.disabled = true;
+                  submitBtn.style.opacity = '0.5';
+                  submitBtn.style.cursor = 'not-allowed';
+                  warningBox.style.display = 'block';
+                  
+                  if (isAdminOverride) {
+                      warningBox.innerHTML = '<p style="margin:0; font-size:14px; color:#e65100; font-weight:600;">Booking exceeds 48 hours</p><p style="margin:6px 0 0; font-size:13px; color:#555;">Even as an administrator, you cannot book more than 48 hours continuously.</p>';
+                  }
+              } else {
+                  submitBtn.disabled = false;
+                  submitBtn.style.opacity = '1';
+                  submitBtn.style.cursor = 'pointer';
+                  warningBox.style.display = 'none';
+              }
+          }
+
+          startTimeInput.addEventListener('change', checkDuration);
+          endTimeInput.addEventListener('change', checkDuration);
+          dateInput.addEventListener('change', checkDuration);
+          checkDuration();
+      });
+      </script>
 
       <div class="panel summary-card">
         <?php if ($selectedResource): ?>

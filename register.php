@@ -161,7 +161,7 @@ $csrf_token = $_SESSION['csrf_token'];
             </div>
           </div>
 
-          <div class="field">
+          <div class="field field-half">
             <label for="role">I am a</label>
             <select id="role" name="role">
               <option value="student" <?php echo $old['role'] === 'student' ? 'selected' : ''; ?>>Student</option>
@@ -170,15 +170,7 @@ $csrf_token = $_SESSION['csrf_token'];
             </select>
           </div>
 
-          <div class="field field-full">
-            <label for="university_id">University ID / Registration No. <span style="color:var(--ink-soft); font-weight:400;">(Required for students)</span></label>
-            <div class="field-control">
-              <input type="text" id="university_id" name="university_id" placeholder="e.g., 22CDS0439"
-                     value="<?php echo e($old['university_id']); ?>">
-            </div>
-          </div>
-
-          <div class="field">
+          <div class="field field-half">
             <label for="department">Department / Faculty</label>
             <select id="department" name="department" required>
               <option value="">-- Select Department --</option>
@@ -190,7 +182,15 @@ $csrf_token = $_SESSION['csrf_token'];
             </select>
           </div>
 
-          <div class="field">
+          <div class="field field-full">
+            <label for="university_id">University ID / Registration No. <span style="color:var(--ink-soft); font-weight:400;">(Required for students)</span></label>
+            <div class="field-control">
+              <input type="text" id="university_id" name="university_id" placeholder="e.g., 22CDS0439"
+                     value="<?php echo e($old['university_id']); ?>">
+            </div>
+          </div>
+
+          <div class="field field-half">
             <label for="password">Password</label>
             <div class="field-control">
               <input type="password" id="password" name="password" placeholder="At least 8 characters"
@@ -199,7 +199,7 @@ $csrf_token = $_SESSION['csrf_token'];
             </div>
           </div>
 
-          <div class="field">
+          <div class="field field-half">
             <label for="confirm_password">Confirm password</label>
             <div class="field-control">
               <input type="password" id="confirm_password" name="confirm_password" placeholder="Repeat password"

@@ -38,6 +38,7 @@ if ($user['role'] === 'admin') {
         <li><a href="dashboard.php" class="<?php echo $active === 'dashboard' ? 'is-active' : ''; ?>">Dashboard</a></li>
         <li><a href="resources.php" class="<?php echo $active === 'resources' ? 'is-active' : ''; ?>">Resources</a></li>
         <li><a href="my-bookings.php" class="<?php echo $active === 'bookings' ? 'is-active' : ''; ?>">My Bookings</a></li>
+        <li><a href="<?php echo in_array($user['role'], ['admin', 'faculty'], true) ? 'admin/support.php' : 'support.php'; ?>" class="<?php echo $active === 'support' ? 'is-active' : ''; ?>">Support</a></li>
         <li><a href="notifications.php" class="<?php echo $active === 'notifications' ? 'is-active' : ''; ?>">
           Notifications<?php if ($unread > 0): ?> <span class="nav-badge"><?php echo $unread; ?></span><?php endif; ?>
         </a></li>

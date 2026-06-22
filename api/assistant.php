@@ -14,6 +14,13 @@ if (!is_logged_in()) {
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
+
+if (isset($input['action']) && $input['action'] === 'clear') {
+    unset($_SESSION['ai_booking_state']);
+    echo json_encode(['status' => 'cleared']);
+    exit;
+}
+
 $message = trim($input['message'] ?? '');
 $msgLow = strtolower($message);
 $pdo = get_db_connection();
@@ -53,11 +60,20 @@ if (isset($_SESSION['ai_booking_state'])) {
             exit;
         }
 
-        // Clean up common numbers
-        $cleanMsg = str_replace(['thirteen', 'fourteen', 'fifteen'], ['13', '14', '15'], $msgLow);
+        // Clean up common numbers, typos, and convert slashes to dashes for EU format
+        $cleanMsg = str_replace(
+            ['thirteen', 'fourteen', 'fifteen', '/', 'tommorow', 'tommorrow'], 
+            ['13', '14', '15', '-', 'tomorrow', 'tomorrow'], 
+            $msgLow
+        );
         $timeStr = strtotime($cleanMsg);
 
         if ($timeStr) {
+            // If time is exactly midnight but they didn't explicitly say 12am/midnight
+            if (date('H:i:s', $timeStr) === '00:00:00' && !preg_match('/\b(12\s*am|midnight|00:00)\b/', $msgLow)) {
+                $timeStr += 36000; // +10 hours
+            }
+
             // Assume future if the parsed time has passed today
             if ($timeStr < time() && date('Y-m-d', $timeStr) === date('Y-m-d')) {
                 $timeStr = strtotime('+1 day', $timeStr);
@@ -66,20 +82,96 @@ if (isset($_SESSION['ai_booking_state'])) {
                 exit;
             }
 
+            // Extract custom duration if provided (e.g., "for 4 hours")
+            $durationSecs = 7200; // Default 2 hours
+            if (preg_match('/\b(\d+)\s*(hour|hr)s?\b/', $msgLow, $durMatch)) {
+                $durationSecs = ((int)$durMatch[1]) * 3600;
+            }
+
+            $user = current_user();
+            $isAdminOverride = in_array($user['role'], ['admin', 'faculty', 'project_lead']);
+            $maxDur = $isAdminOverride ? 48 * 3600 : 12 * 3600;
+
+            if ($durationSecs > $maxDur) {
+                unset($_SESSION['ai_booking_state']);
+                if ($isAdminOverride) {
+                    echo json_encode(['reply' => "Even as an administrator, you cannot book a resource for more than 48 hours continuously."]);
+                } else {
+                    echo json_encode([
+                        'reply' => "I am not authorized to automatically process bookings longer than 12 hours. Please use the Support Desk below to arrange this extended session.",
+                        'action' => ['label' => 'Open Support Desk', 'url' => '#adminSelect']
+                    ]);
+                }
+                exit;
+            }
+
             $start = date('Y-m-d H:i:s', $timeStr);
-            $end = date('Y-m-d H:i:s', $timeStr + 7200); // Default 2 hours
+            $end = date('Y-m-d H:i:s', $timeStr + $durationSecs);
 
             $state['start_time'] = $start;
             $state['end_time'] = $end;
-            $state['step'] = 'awaiting_urgency';
+            $state['step'] = 'awaiting_team_size';
             $_SESSION['ai_booking_state'] = $state;
 
-            echo json_encode(['reply' => "Got it. I have you down for **" . date('M j \a\t g:i A', $timeStr) . "** for 2 hours. \nOn a scale of 1 to 5, what is the **Priority/Urgency** level of this request?"]);
+            $hours = $durationSecs / 3600;
+            echo json_encode(['reply' => "Got it. I have you down for **" . date('M j \a\t g:i A', $timeStr) . "** for " . $hours . " hours. \nHow many people will be in your team? (e.g. '4' or 'just me')"]);
             exit;
         } else {
             echo json_encode(['reply' => "I couldn't quite understand that time. You can say something like 'Tomorrow at 11 AM' or '13/05 2pm'."]);
             exit;
         }
+    }
+
+    if ($state['step'] === 'awaiting_team_size') {
+        // Did they actually mean to change the duration?
+        if (preg_match('/\b(\d+)\s*(hour|hr)s?\b/', $msgLow, $durMatch)) {
+            $durationSecs = ((int)$durMatch[1]) * 3600;
+            
+            $user = current_user();
+            $isAdminOverride = in_array($user['role'], ['admin', 'faculty', 'project_lead']);
+            $maxDur = $isAdminOverride ? 48 * 3600 : 12 * 3600;
+
+            if ($durationSecs > $maxDur) {
+                unset($_SESSION['ai_booking_state']);
+                if ($isAdminOverride) {
+                    echo json_encode(['reply' => "Even as an administrator, you cannot book a resource for more than 48 hours continuously."]);
+                } else {
+                    echo json_encode([
+                        'reply' => "I am not authorized to automatically process bookings longer than 12 hours. Please use the Support Desk to contact Faculty.",
+                        'action' => ['label' => 'Open Support Desk', 'url' => 'support.php']
+                    ]);
+                }
+                exit;
+            }
+
+            $state['end_time'] = date('Y-m-d H:i:s', strtotime($state['start_time']) + $durationSecs);
+            $_SESSION['ai_booking_state'] = $state;
+            
+            $hours = $durationSecs / 3600;
+            echo json_encode(['reply' => "I've updated the duration to " . $hours . " hours!\nNow, how many people will be in your team?"]);
+            exit;
+        }
+
+        if (preg_match('/\b(\d+)\b/', $msgLow, $m)) {
+            $state['team_size'] = (int) $m[1];
+        } else {
+            $state['team_size'] = 1; // Default
+        }
+        
+        $state['step'] = 'awaiting_purpose';
+        $_SESSION['ai_booking_state'] = $state;
+        
+        echo json_encode(['reply' => "Perfect, team size is " . $state['team_size'] . ".\nWhat is the purpose of this booking? (e.g., 'Lab Assignment', 'Meeting')"]);
+        exit;
+    }
+
+    if ($state['step'] === 'awaiting_purpose') {
+        $state['purpose'] = substr(trim($message), 0, 100);
+        $state['step'] = 'awaiting_urgency';
+        $_SESSION['ai_booking_state'] = $state;
+        
+        echo json_encode(['reply' => "Got it.\nOn a scale of 1 to 5, what is the **Priority/Urgency** level of this request?"]);
+        exit;
     }
 
     if ($state['step'] === 'awaiting_urgency') {
@@ -91,6 +183,8 @@ if (isset($_SESSION['ai_booking_state'])) {
             $reply = "Almost done! Here are the details:\n";
             $reply .= "- Resource: **" . htmlspecialchars($state['resource_name']) . "**\n";
             $reply .= "- Time: **" . date('M j \a\t g:i A', strtotime($state['start_time'])) . "**\n";
+            $reply .= "- Team Size: **" . $state['team_size'] . "**\n";
+            $reply .= "- Purpose: **" . htmlspecialchars($state['purpose']) . "**\n";
             $reply .= "- Priority: **" . $state['urgency'] . "**\n";
             $reply .= "\nShall I submit this booking for approval? (Yes/No)";
 
@@ -105,7 +199,7 @@ if (isset($_SESSION['ai_booking_state'])) {
     if ($state['step'] === 'awaiting_confirmation') {
         if (preg_match('/\b(yes|yeah|yep|sure|ok|okay)\b/', $msgLow)) {
             $user = current_user();
-            $res = create_booking((int)$user['id'], $state['resource_id'], "AI Conversational Booking", $state['start_time'], $state['end_time'], $state['urgency'], $state['team_size']);
+            $res = create_booking((int)$user['id'], $state['resource_id'], $state['purpose'], $state['start_time'], $state['end_time'], $state['urgency'], $state['team_size']);
             unset($_SESSION['ai_booking_state']);
 
             if ($res['status'] === 'pending') {
@@ -223,7 +317,7 @@ if (!empty($resources)) {
         $r = $resources[0];
         $reply = "I found **" . htmlspecialchars($r['name']) . "** which is free right now! ";
         if ($r['capacity']) $reply .= "It has a capacity of " . $r['capacity'] . " people. ";
-        $reply .= "When would you like to book it? (You can say 'Tomorrow at 11 AM' or '13/05/2026' or 'when is it free?')";
+        $reply .= "When would you like to book it? (Please provide BOTH Date and Time, e.g. 'Tomorrow at 11 AM' or '13/05/2026 2pm')";
         
         $_SESSION['ai_booking_state'] = [
             'step' => 'awaiting_time',

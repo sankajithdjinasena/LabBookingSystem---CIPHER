@@ -15,7 +15,10 @@ define('SURAS_FUNCTIONS_LOADED', true);
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/mailer.php';
+
+// Ensure the notifications directory exists
 
 /* =====================================================================
    Formatting helpers
@@ -256,7 +259,25 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
 
     $pdo->beginTransaction();
     try {
+        $userStmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+        $userStmt->execute([$userId]);
+        $role = $userStmt->fetchColumn();
+        
+        $currentUser = function_exists('current_user') && is_logged_in() ? current_user() : null;
+        $activeRole = $currentUser ? $currentUser['role'] : $role;
+        $isAdminOverride = in_array($activeRole, ['admin', 'faculty', 'project_lead']);
+
         $conflicts = get_overlapping_bookings($resourceId, $start, $end);
+        
+        if ($isAdminOverride && !empty($conflicts)) {
+            // Cancel all overlapping bookings to make way for the admin/faculty booking
+            foreach ($conflicts as $cb) {
+                $cancelStmt = $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?");
+                $cancelStmt->execute([$cb['id']]);
+            }
+            $conflicts = []; // Clear conflicts so it proceeds normally without splitting
+        }
+
         $resource = get_resource($resourceId);
 
         // 1. Check if we should trigger the Round Robin splitting logic
@@ -438,17 +459,25 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                 'urgency'     => $urgency,
                 'team_size'   => $teamSize,
                 'score'       => $score,
-                'status'      => 'pending', // ALWAYS require faculty/admin approval
+                'status'      => $isAdminOverride ? 'approved' : 'pending',
             ]);
             $bookingId = (int) $pdo->lastInsertId();
-            create_notification($userId, $bookingId, 'submission', 'Your booking request has been submitted and is pending faculty/admin approval.');
+            if ($isAdminOverride) {
+                create_notification($userId, $bookingId, 'approval', 'Your resource booking request has been approved by administrator override.');
+            } else {
+                create_notification($userId, $bookingId, 'submission', 'Your booking request has been submitted and is pending faculty/admin approval.');
+            }
 
             $pdo->commit();
-            return ['booking_id' => $bookingId, 'status' => 'pending', 'alternative' => null];
+            return ['booking_id' => $bookingId, 'status' => $isAdminOverride ? 'approved' : 'pending', 'alternative' => null];
         } else {
             $hasHigherPriority = true;
             foreach ($conflicts as $cb) {
-                if ($score <= (float) $cb['priority_score']) {
+                // Early-Bird Immunity: If the existing booking was made > 7 days before its start time, it is locked.
+                $daysInAdvance = (strtotime($cb['start_time']) - strtotime($cb['created_at'])) / 86400;
+                $isImmune = ($daysInAdvance >= 7);
+
+                if ($score <= (float) $cb['priority_score'] || $isImmune) {
                     $hasHigherPriority = false;
                     break;
                 }
@@ -628,6 +657,19 @@ function create_notification(int $userId, ?int $bookingId, string $type, string 
         'submission'   => '[SURAS] Booking Submitted',
     ];
     $subject = $subjects[$type] ?? '[SURAS] Notification';
+    if (!function_exists('notify_user_by_email')) {
+        function notify_user_by_email($userId, $subject, $message) {
+            $pdo = get_db_connection();
+            $stmt = $pdo->prepare("SELECT email, full_name FROM users WHERE id = :id");
+            $stmt->execute(['id' => $userId]);
+            $user = $stmt->fetch();
+            if ($user && !empty($user['email'])) {
+                $toName = trim($user['full_name']);
+                send_email_notification($user['email'], $toName, $subject, $message);
+            }
+        }
+    }
+
     notify_user_by_email($userId, $subject, $message);
 }
 

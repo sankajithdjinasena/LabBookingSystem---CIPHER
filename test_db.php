@@ -2,17 +2,5 @@
 require 'includes/config.php';
 require 'includes/functions.php';
 
-$msgLow = strtolower("Mobile PA System");
-$pdo = get_db_connection();
-$allResStmt = $pdo->query("SELECT name FROM resources");
-$allRes = $allResStmt->fetchAll(PDO::FETCH_COLUMN);
-
-$specificRoom = null;
-foreach ($allRes as $resName) {
-    if (strpos($msgLow, strtolower($resName)) !== false) {
-        $specificRoom = $resName;
-        break;
-    }
-}
-
-echo "Specific Room: " . $specificRoom . "\n";
+$res = create_booking(4, 2, "meeting", "2026-12-12 10:00:00", "2026-12-12 12:00:00", 5, 11);
+print_r($res);

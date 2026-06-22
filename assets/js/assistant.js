@@ -5,7 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="ai-assistant-window" id="aiWindow">
             <div class="ai-header">
                 <div class="ai-header-title"><span>🤖</span> SURAS Assistant</div>
-                <button class="ai-close-btn" id="aiClose">&times;</button>
+                <div>
+                    <button class="ai-close-btn" id="aiClear" title="Restart Chat" style="margin-right: 8px;">🔄</button>
+                    <button class="ai-close-btn" id="aiClose">&times;</button>
+                </div>
             </div>
             <div class="ai-messages" id="aiMsgs">
                 <div class="ai-msg system">Hi! I'm your AI Booking Assistant. Try saying: "I need a lab for 4 people tomorrow."</div>
@@ -22,12 +25,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('aiBtn');
     const win = document.getElementById('aiWindow');
     const closeBtn = document.getElementById('aiClose');
+    const clearBtn = document.getElementById('aiClear');
     const input = document.getElementById('aiInput');
     const sendBtn = document.getElementById('aiSend');
     const msgsContainer = document.getElementById('aiMsgs');
 
     btn.addEventListener('click', () => win.classList.toggle('is-open'));
     closeBtn.addEventListener('click', () => win.classList.remove('is-open'));
+
+    clearBtn.addEventListener('click', () => {
+        msgsContainer.innerHTML = '<div class="ai-msg system">Chat cleared. Hi! I\'m your AI Booking Assistant. Try saying: "I need a lab for 4 people tomorrow."</div>';
+        fetch('api/assistant.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: 'clear'})
+        });
+    });
 
     const addMessage = (text, sender, action = null) => {
         const div = document.createElement('div');

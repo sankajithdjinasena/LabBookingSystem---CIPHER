@@ -168,10 +168,12 @@ $justRegistered = isset($_GET['welcome']);
       </div>
     </div>
 
+
+
   </div>
 </main>
 
-<script src="assets/js/main.js"></script>
-<script src="assets/js/assistant.js"></script>
+<script src="assets/js/main.js?v=<?php echo time(); ?>"></script>
+<script src="assets/js/assistant.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

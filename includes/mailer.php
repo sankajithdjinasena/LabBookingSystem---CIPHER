@@ -1,100 +1,87 @@
 <?php
 /**
- * SURAS — email notification helper
+ * mailer.php — SURAS email notification helper using PHPMailer + Gmail SMTP.
  *
- * Uses PHPMailer (installed via Composer or dropped into vendor/).
- * Toggle on/off from Admin → Settings without touching code.
- *
- * PHPMailer SMTP settings live in includes/config.php:
- *   define('MAIL_HOST',       'smtp.university.edu');
- *   define('MAIL_PORT',       587);
- *   define('MAIL_USERNAME',   'suras@university.edu');
- *   define('MAIL_PASSWORD',   'your-smtp-password');
- *   define('MAIL_ENCRYPTION', 'tls');   // 'tls' or 'ssl'
- *
- * If PHPMailer is not installed, the function logs to PHP's error log
- * and returns false silently — the system keeps running in-app only.
+ * Requires: composer require phpmailer/phpmailer
  */
 
-if (defined('SURAS_MAILER_LOADED')) {
-    return;
-}
-define('SURAS_MAILER_LOADED', true);
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
 
-require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+
+// ─── SMTP Configuration ───────────────────────────────────────────────────────
+define('MAIL_HOST',       'smtp.gmail.com');
+define('MAIL_PORT',       587);
+define('MAIL_USERNAME',   'predictrasusl@gmail.com');
+define('MAIL_PASSWORD',   'mnpp xhlk yccw wcoo');   // Gmail App Password
+define('MAIL_FROM',       'predictrasusl@gmail.com');
+define('MAIL_FROM_NAME',  'SURAS Team');
+define('MAIL_ENCRYPTION', PHPMailer::ENCRYPTION_STARTTLS);
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Sends a plain-text + HTML email notification.
- * Returns true on success, false if disabled or on failure.
+ * Send an email notification.
+ *
+ * @param string $toEmail   Recipient email address.
+ * @param string $toName    Recipient display name.
+ * @param string $subject   Email subject line.
+ * @param string $body      Plain-text email body.
+ * @param string $htmlBody  Optional HTML version of the body.
+ *
+ * @return bool  TRUE on success, FALSE on failure (error logged).
  */
-function send_email_notification(string $toEmail, string $toName, string $subject, string $bodyText): bool
-{
-    // Only send if email notifications are enabled in settings.
-    if ((int) get_setting('notify_email_enabled', '0') !== 1) {
-        return false;
-    }
+function send_email_notification(
+    string $toEmail,
+    string $toName,
+    string $subject,
+    string $body,
+    string $htmlBody = ''
+): bool {
 
-    $fromEmail = get_setting('notify_from_email', 'noreply@university.edu');
-    $fromName  = get_setting('notify_from_name',  'SURAS Resource System');
-
-    // Try to load PHPMailer — support both Composer autoload and manual drop-in.
-    $composerAutoload = __DIR__ . '/../vendor/autoload.php';
-    $manualLoad       = __DIR__ . '/../vendor/phpmailer/phpmailer/src/PHPMailer.php';
-
-    if (file_exists($composerAutoload)) {
-        require_once $composerAutoload;
-    } elseif (file_exists($manualLoad)) {
-        require_once $manualLoad;
-        require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/SMTP.php';
-        require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/Exception.php';
-    } else {
-        error_log('SURAS mailer: PHPMailer not found. Run: composer require phpmailer/phpmailer');
-        return false;
-    }
+    $mail = new PHPMailer(true);
 
     try {
-        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        // ── Server settings ──────────────────────────────────────────────────
         $mail->isSMTP();
-        $mail->Host       = defined('MAIL_HOST')       ? MAIL_HOST       : 'localhost';
-        $mail->SMTPAuth   = defined('MAIL_USERNAME')   && MAIL_USERNAME !== '';
-        $mail->Username   = defined('MAIL_USERNAME')   ? MAIL_USERNAME   : '';
-        $mail->Password   = defined('MAIL_PASSWORD')   ? MAIL_PASSWORD   : '';
-        $mail->SMTPSecure = defined('MAIL_ENCRYPTION') ? MAIL_ENCRYPTION : 'tls';
-        $mail->Port       = defined('MAIL_PORT')       ? MAIL_PORT       : 587;
-        $mail->CharSet    = 'UTF-8';
+        $mail->Host       = MAIL_HOST;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = MAIL_USERNAME;
+        $mail->Password   = MAIL_PASSWORD;
+        $mail->SMTPSecure = MAIL_ENCRYPTION;
+        $mail->Port       = MAIL_PORT;
 
-        $mail->setFrom($fromEmail, $fromName);
+        // Disable SSL certificate verification for local dev (remove in prod)
+        // $mail->SMTPOptions = [
+        //     'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]
+        // ];
+
+        // ── Sender ───────────────────────────────────────────────────────────
+        $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
+        $mail->addReplyTo(MAIL_FROM, MAIL_FROM_NAME);
+
+        // ── Recipient ────────────────────────────────────────────────────────
         $mail->addAddress($toEmail, $toName);
+
+        // ── Content ──────────────────────────────────────────────────────────
+        $mail->CharSet = 'UTF-8';
         $mail->Subject = $subject;
 
-        // Plain text body
-        $mail->Body    = $bodyText;
-
-        // Simple HTML body
-        $mail->isHTML(true);
-        $mail->Body    = nl2br(htmlspecialchars($bodyText, ENT_QUOTES, 'UTF-8'));
-        $mail->AltBody = $bodyText;
+        if (!empty($htmlBody)) {
+            $mail->isHTML(true);
+            $mail->Body    = $htmlBody;
+            $mail->AltBody = $body;   // plain-text fallback
+        } else {
+            $mail->isHTML(false);
+            $mail->Body = $body;
+        }
 
         $mail->send();
         return true;
+
     } catch (Exception $e) {
-        error_log('SURAS mailer error: ' . $e->getMessage());
+        error_log('[SURAS Mailer] Failed to send to ' . $toEmail . ' — ' . $mail->ErrorInfo);
         return false;
     }
-}
-
-/**
- * Convenience wrapper: look up the user's email + name, then send.
- * Called after create_notification() so the in-app record is always created first.
- */
-function notify_user_by_email(int $userId, string $subject, string $bodyText): void
-{
-    $pdo = get_db_connection();
-    $stmt = $pdo->prepare('SELECT full_name, email FROM users WHERE id = :id');
-    $stmt->execute(['id' => $userId]);
-    $user = $stmt->fetch();
-    if (!$user) {
-        return;
-    }
-    send_email_notification($user['email'], $user['full_name'], $subject, $bodyText);
 }

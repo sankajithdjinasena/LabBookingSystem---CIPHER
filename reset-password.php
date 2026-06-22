@@ -85,7 +85,10 @@ $csrf_token = $_SESSION['csrf_token'];
   <aside class="auth-aside">
     <div class="auth-aside-top">
       <a href="index.php" class="brand">
-        <span class="brand-mark">S</span>
+        <img src="assets/img/logo.png" alt="NEXLAB Logo" class="brand-mark-img" style="    height: 85px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 19%;">
         <span>
           <span class="brand-name">NEXLAB</span>
           <span class="brand-sub">RESOURCE LEDGER</span>

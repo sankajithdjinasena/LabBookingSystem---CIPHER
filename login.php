@@ -151,7 +151,7 @@ $csrf_token = $_SESSION['csrf_token'];
             <input type="checkbox" name="remember">
             Keep me signed in
           </label>
-          <a href="#" class="link-amber">Forgot password?</a>
+          <a href="forgot-password.php" class="link-amber">Forgot password?</a>
         </div>
 
         <button type="submit" class="btn btn-amber btn-block">Sign in</button>

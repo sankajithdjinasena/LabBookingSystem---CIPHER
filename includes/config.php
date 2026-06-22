@@ -11,18 +11,36 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
+// ---- SMTP (used by includes/mailer.php + PHPMailer) --------------------
+// Set notify_email_enabled = 1 in Admin → Settings to activate emails.
+define('MAIL_HOST',       'smtp.university.edu');   // your SMTP server
+define('MAIL_PORT',       587);
+define('MAIL_USERNAME',   'suras@university.edu');  // SMTP login
+define('MAIL_PASSWORD',   '');                      // SMTP password
+define('MAIL_ENCRYPTION', 'tls');                   // 'tls' or 'ssl'
+
 // ---- Application settings --------------------------------------------------
 define('APP_NAME', 'SURAS');
 define('APP_FULL_NAME', 'Smart University Resource Allocation System');
 define('BASE_URL', '/'); // change to a sub-path if SURAS is not hosted at the web root
 
-// ---- Session ----------------------------------------------------------------
+// ---- Security headers -------------------------------------------------------
+header('X-Frame-Options: SAMEORIGIN');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header("Content-Security-Policy: default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self';");
+
+// ---- Session ------------------------------------------------------------
 // Hardened session cookie settings — must run before session_start().
 if (session_status() === PHP_SESSION_NONE) {
+    $secureCookie = (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] == 1))
+                    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
         'httponly' => true,
+        'secure'   => $secureCookie,
         'samesite' => 'Lax',
     ]);
     session_start();

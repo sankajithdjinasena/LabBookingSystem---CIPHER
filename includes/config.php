@@ -4,6 +4,8 @@
  * Smart University Resource Allocation System
  */
 
+require_once __DIR__ . '/env.php';
+
 // ---- Database credentials -------------------------------------------------
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'suras');
@@ -13,11 +15,15 @@ define('DB_CHARSET', 'utf8mb4');
 
 // ---- SMTP (used by includes/mailer.php + PHPMailer) --------------------
 // Set notify_email_enabled = 1 in Admin → Settings to activate emails.
-define('MAIL_HOST',       'smtp.university.edu');   // your SMTP server
+
+
+define('MAIL_HOST',       'smtp.gmail.com');
 define('MAIL_PORT',       587);
-define('MAIL_USERNAME',   'suras@university.edu');  // SMTP login
-define('MAIL_PASSWORD',   '');                      // SMTP password
-define('MAIL_ENCRYPTION', 'tls');                   // 'tls' or 'ssl'
+define('MAIL_USERNAME', $_ENV['MAIL_USERNAME'] ?? '');
+define('MAIL_PASSWORD', $_ENV['MAIL_PASSWORD'] ?? '');
+define('MAIL_FROM',       'predictrasusl@gmail.com');
+define('MAIL_FROM_NAME',  'SURAS Team');
+define('MAIL_ENCRYPTION', 'tls');// 'tls' or 'ssl'
 
 // ---- Application settings --------------------------------------------------
 define('APP_NAME', 'SURAS');

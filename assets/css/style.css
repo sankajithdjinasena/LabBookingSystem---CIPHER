@@ -589,9 +589,11 @@ section{ padding: 84px 0; }
 
 .auth-main{
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 48px 32px;
+  min-height: 100vh;
+  padding-top: 80px;
 }
 .auth-card{
   width: 100%;
@@ -1107,6 +1109,17 @@ section{ padding: 84px 0; }
   .data-table{ display: block; overflow-x: auto; white-space: nowrap; }
   .page-head{ flex-direction: column; align-items: flex-start; }
 }
+
+/* Ops navbar (admin/faculty) — more items so needs tighter spacing */
+.ops-nav{ padding: 14px 0; }
+.ops-nav .nav-links{ gap: 18px; }
+.ops-nav .nav-links a{ font-size: 13px; white-space: nowrap; }
+.ops-nav .nav-actions{ gap: 8px; }
+.ops-nav .user-chip-meta{ display: none; }
+.ops-nav .user-chip-avatar{ width: 30px; height: 30px; font-size: 13px; }
+.ops-nav .btn{ padding: 8px 14px; font-size: 13px; }
+.ops-nav .brand-name{ font-size: 16px; }
+.ops-nav .brand-sub{ font-size: 9.5px; }
 
 /* Mobile nav panel */
 .nav-links.is-open{

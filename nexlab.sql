@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1:3306
--- Generation Time: Jun 22, 2026 at 05:59 PM
--- Server version: 8.3.0
--- PHP Version: 8.2.18
+-- Host: 127.0.0.1
+-- Generation Time: Jun 22, 2026 at 08:30 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `suras`
+-- Database: `nexlab`
 --
 
 -- --------------------------------------------------------
@@ -27,23 +27,19 @@ SET time_zone = "+00:00";
 -- Table structure for table `bookings`
 --
 
-DROP TABLE IF EXISTS `bookings`;
-CREATE TABLE IF NOT EXISTS `bookings` (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` int UNSIGNED NOT NULL,
-  `resource_id` int UNSIGNED NOT NULL,
-  `purpose` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+CREATE TABLE `bookings` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `user_id` int(10) UNSIGNED NOT NULL,
+  `resource_id` int(10) UNSIGNED NOT NULL,
+  `purpose` varchar(255) NOT NULL,
   `start_time` datetime NOT NULL,
   `end_time` datetime NOT NULL,
-  `urgency` tinyint UNSIGNED NOT NULL DEFAULT '1',
-  `team_size` int UNSIGNED NOT NULL DEFAULT '1',
+  `urgency` tinyint(3) UNSIGNED NOT NULL DEFAULT 1,
+  `team_size` int(10) UNSIGNED NOT NULL DEFAULT 1,
   `priority_score` decimal(5,2) DEFAULT NULL,
-  `status` enum('pending','approved','rejected','waitlist','completed','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `fk_bookings_user` (`user_id`),
-  KEY `idx_bookings_resource_time` (`resource_id`,`start_time`,`end_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=44 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `status` enum('pending','approved','rejected','waitlist','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `bookings`
@@ -73,13 +69,10 @@ INSERT INTO `bookings` (`id`, `user_id`, `resource_id`, `purpose`, `start_time`,
 -- Table structure for table `departments`
 --
 
-DROP TABLE IF EXISTS `departments`;
-CREATE TABLE IF NOT EXISTS `departments` (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `departments` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(120) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `departments`
@@ -97,36 +90,32 @@ INSERT INTO `departments` (`id`, `name`) VALUES
 -- Table structure for table `notifications`
 --
 
-DROP TABLE IF EXISTS `notifications`;
-CREATE TABLE IF NOT EXISTS `notifications` (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` int UNSIGNED NOT NULL,
-  `booking_id` int UNSIGNED DEFAULT NULL,
-  `type` enum('approval','rejection','cancellation','reminder','waitlist','alternative') COLLATE utf8mb4_unicode_ci NOT NULL,
-  `message` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_read` tinyint(1) NOT NULL DEFAULT '0',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `fk_notifications_user` (`user_id`),
-  KEY `fk_notifications_booking` (`booking_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=77 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `notifications` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `user_id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED DEFAULT NULL,
+  `type` enum('approval','rejection','cancellation','reminder','waitlist','alternative') NOT NULL,
+  `message` varchar(500) NOT NULL,
+  `is_read` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `notifications`
 --
 
 INSERT INTO `notifications` (`id`, `user_id`, `booking_id`, `type`, `message`, `is_read`, `created_at`) VALUES
-(22, 4, 12, 'approval', 'Your booking request has been approved automatically.', 0, '2026-06-21 13:58:49'),
+(22, 4, 12, 'approval', 'Your booking request has been approved automatically.', 1, '2026-06-21 13:58:49'),
 (23, 5, 13, 'approval', 'Your booking request has been approved automatically.', 0, '2026-06-21 13:58:49'),
 (24, 5, 13, 'alternative', 'Your booking for Conference Room A on Jun 25 was demoted to the waitlist because a higher priority request was approved. Alternative slot available: 8:00 AM–10:00 AM.', 0, '2026-06-21 13:58:49'),
 (25, 3, 14, 'approval', 'Your booking request overrode an existing lower-priority booking.', 1, '2026-06-21 13:58:49'),
-(26, 4, 15, 'alternative', 'Your booking request conflicted with a higher-priority request and has been waitlisted. Alternative slot: Jun 25, 8:00 AM–9:00 AM.', 0, '2026-06-21 13:58:49'),
-(27, 4, NULL, 'approval', 'Your booking request has been approved automatically.', 0, '2026-06-21 13:58:49'),
-(28, 4, NULL, 'alternative', 'Your booking for Computer Lab 204 conflicted with another request. It was split fairly using Round Robin. Approved slots: 12:00 PM–2:00 PM.', 0, '2026-06-21 13:58:49'),
+(26, 4, 15, 'alternative', 'Your booking request conflicted with a higher-priority request and has been waitlisted. Alternative slot: Jun 25, 8:00 AM–9:00 AM.', 1, '2026-06-21 13:58:49'),
+(27, 4, NULL, 'approval', 'Your booking request has been approved automatically.', 1, '2026-06-21 13:58:49'),
+(28, 4, NULL, 'alternative', 'Your booking for Computer Lab 204 conflicted with another request. It was split fairly using Round Robin. Approved slots: 12:00 PM–2:00 PM.', 1, '2026-06-21 13:58:49'),
 (29, 5, NULL, 'alternative', 'Your booking for Computer Lab 204 was split fairly using Round Robin. Approved slots: 10:00 AM–12:00 PM.', 0, '2026-06-21 13:58:49'),
 (30, 5, 13, 'rejection', 'Your booking request was rejected.', 0, '2026-06-21 14:02:37'),
-(31, 4, 15, 'rejection', 'Your booking request was rejected.', 0, '2026-06-21 14:02:46'),
-(32, 4, NULL, 'alternative', 'Your booking for Computer Lab 204 conflicted with another request. It was split fairly using Round Robin. Approved slots: 9:00 AM–11:00 AM.', 0, '2026-06-21 17:37:11'),
+(31, 4, 15, 'rejection', 'Your booking request was rejected.', 1, '2026-06-21 14:02:46'),
+(32, 4, NULL, 'alternative', 'Your booking for Computer Lab 204 conflicted with another request. It was split fairly using Round Robin. Approved slots: 9:00 AM–11:00 AM.', 1, '2026-06-21 17:37:11'),
 (33, 3, NULL, 'alternative', 'Your booking for Computer Lab 204 was split fairly using Round Robin. Approved slots: 7:00 AM–9:00 AM, 11:00 AM–12:00 PM, 1:04 AM–7:00 AM, 12:00 PM–4:03 PM.', 1, '2026-06-21 17:37:11'),
 (34, 6, NULL, 'approval', 'Your booking request has been approved automatically.', 1, '2026-06-22 09:33:17'),
 (35, 6, 26, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 1, '2026-06-22 09:56:37'),
@@ -137,9 +126,9 @@ INSERT INTO `notifications` (`id`, `user_id`, `booking_id`, `type`, `message`, `
 (40, 6, 27, 'approval', 'Your booking request has been approved.', 1, '2026-06-22 10:11:38'),
 (41, 6, 27, 'reminder', 'Reminder: Your booking starts in 1 hour.', 1, '2026-12-06 17:30:00'),
 (42, 6, 27, 'reminder', 'Your booking has ended. Thank you for using SURAS!', 1, '2026-12-06 20:30:00'),
-(49, 4, 34, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 0, '2026-06-22 10:34:59'),
+(49, 4, 34, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 1, '2026-06-22 10:34:59'),
 (50, 6, 35, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 1, '2026-06-22 10:37:11'),
-(51, 4, 36, 'alternative', 'Your booking request conflicted with a higher-priority request and has been waitlisted. Alternative slot: Dec 12, 8:00 AM–10:00 AM.', 0, '2026-06-22 10:40:50'),
+(51, 4, 36, 'alternative', 'Your booking request conflicted with a higher-priority request and has been waitlisted. Alternative slot: Dec 12, 8:00 AM–10:00 AM.', 1, '2026-06-22 10:40:50'),
 (52, 6, 37, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 1, '2026-06-22 10:53:28'),
 (53, 6, 37, 'approval', 'Your booking request has been approved.', 1, '2026-06-22 11:00:53'),
 (54, 6, 37, 'reminder', 'Reminder: Your booking starts in 1 hour.', 1, '2026-12-27 17:30:00'),
@@ -147,16 +136,16 @@ INSERT INTO `notifications` (`id`, `user_id`, `booking_id`, `type`, `message`, `
 (56, 6, 35, 'approval', 'Your booking request has been approved.', 1, '2026-06-22 11:58:15'),
 (57, 6, 35, 'reminder', 'Reminder: Your booking starts in 1 hour.', 1, '2026-12-12 09:30:00'),
 (58, 6, 35, 'reminder', 'Your booking has ended. Thank you for using SURAS!', 1, '2026-12-12 12:30:00'),
-(59, 4, 34, 'rejection', 'Your booking request was rejected.', 0, '2026-06-22 12:07:42'),
+(59, 4, 34, 'rejection', 'Your booking request was rejected.', 1, '2026-06-22 12:07:42'),
 (60, 6, 38, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 1, '2026-06-22 12:34:22'),
 (61, 6, 38, 'approval', 'Your booking request has been approved.', 1, '2026-06-22 12:34:38'),
 (62, 6, 38, 'reminder', 'Reminder: Your booking starts in 1 hour.', 1, '2027-10-26 03:30:00'),
 (63, 6, 38, 'reminder', 'Your booking has ended. Thank you for using SURAS!', 1, '2027-10-27 04:30:00'),
-(64, 4, NULL, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 0, '2026-06-22 13:10:55'),
-(65, 4, NULL, 'approval', 'Your resource booking request has been approved by administrator override.', 0, '2026-06-22 13:12:06'),
-(66, 4, 36, 'approval', 'Your booking request has been approved.', 0, '2026-06-22 13:36:51'),
-(67, 4, 36, 'reminder', 'Reminder: Your booking starts in 1 hour.', 0, '2026-12-12 03:30:00'),
-(68, 4, 36, 'reminder', 'Your booking has ended. Thank you for using SURAS!', 0, '2026-12-12 06:30:00'),
+(64, 4, NULL, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 1, '2026-06-22 13:10:55'),
+(65, 4, NULL, 'approval', 'Your resource booking request has been approved by administrator override.', 1, '2026-06-22 13:12:06'),
+(66, 4, 36, 'approval', 'Your booking request has been approved.', 1, '2026-06-22 13:36:51'),
+(67, 4, 36, 'reminder', 'Reminder: Your booking starts in 1 hour.', 1, '2026-12-12 03:30:00'),
+(68, 4, 36, 'reminder', 'Your booking has ended. Thank you for using SURAS!', 1, '2026-12-12 06:30:00'),
 (69, 6, 41, 'approval', 'Your resource booking request has been approved by administrator override.', 1, '2026-06-22 13:38:07'),
 (70, 6, 42, '', 'Your booking request has been submitted and is pending faculty/admin approval.', 1, '2026-06-22 13:41:20'),
 (71, 6, 43, 'alternative', 'Your booking request conflicted with a higher-priority request and has been waitlisted. Alternative slot: Jun 25, 8:00 AM–10:00 AM.', 1, '2026-06-22 13:42:54'),
@@ -172,18 +161,16 @@ INSERT INTO `notifications` (`id`, `user_id`, `booking_id`, `type`, `message`, `
 -- Table structure for table `resources`
 --
 
-DROP TABLE IF EXISTS `resources`;
-CREATE TABLE IF NOT EXISTS `resources` (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `category` enum('lab','room','multimedia','device') COLLATE utf8mb4_unicode_ci NOT NULL,
-  `location` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `capacity` int UNSIGNED DEFAULT NULL,
-  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `status` enum('available','maintenance','retired') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `resources` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `category` enum('lab','room','multimedia','device') NOT NULL,
+  `location` varchar(150) DEFAULT NULL,
+  `capacity` int(10) UNSIGNED DEFAULT NULL,
+  `description` varchar(500) DEFAULT NULL,
+  `status` enum('available','maintenance','retired') NOT NULL DEFAULT 'available',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `resources`
@@ -207,14 +194,11 @@ INSERT INTO `resources` (`id`, `name`, `category`, `location`, `capacity`, `desc
 -- Table structure for table `settings`
 --
 
-DROP TABLE IF EXISTS `settings`;
-CREATE TABLE IF NOT EXISTS `settings` (
+CREATE TABLE `settings` (
   `setting_key` varchar(80) NOT NULL,
   `setting_value` varchar(255) NOT NULL,
   `label` varchar(120) NOT NULL,
-  `description` varchar(300) DEFAULT NULL,
-  PRIMARY KEY (`setting_key`)
-<<<<<<< HEAD
+  `description` varchar(300) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -238,20 +222,16 @@ INSERT INTO `settings` (`setting_key`, `setting_value`, `label`, `description`) 
 -- Table structure for table `support_messages`
 --
 
-DROP TABLE IF EXISTS `support_messages`;
-CREATE TABLE IF NOT EXISTS `support_messages` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `sender_id` int NOT NULL,
-  `receiver_id` int DEFAULT NULL,
+CREATE TABLE `support_messages` (
+  `id` int(11) NOT NULL,
+  `sender_id` int(11) NOT NULL,
+  `receiver_id` int(11) DEFAULT NULL,
   `message` text NOT NULL,
-  `is_read` tinyint(1) DEFAULT '0',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `fk_support_sender` (`sender_id`),
-  KEY `fk_support_receiver` (`receiver_id`)
-<<<<<<< HEAD
-) ENGINE=MyISAM AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp()
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
 -- Dumping data for table `support_messages`
 --
 
@@ -275,21 +255,17 @@ INSERT INTO `support_messages` (`id`, `sender_id`, `receiver_id`, `message`, `is
 -- Table structure for table `users`
 --
 
-DROP TABLE IF EXISTS `users`;
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `full_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `email` varchar(190) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `role` enum('student','faculty','project_lead','admin') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'student',
-  `university_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `department` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `status` enum('active','suspended') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `university_id` (`university_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `users` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `full_name` varchar(120) NOT NULL,
+  `email` varchar(190) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `role` enum('student','faculty','project_lead','admin') NOT NULL DEFAULT 'student',
+  `university_id` varchar(50) DEFAULT NULL,
+  `department` varchar(120) DEFAULT NULL,
+  `status` enum('active','suspended') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `users`
@@ -312,20 +288,125 @@ INSERT INTO `users` (`id`, `full_name`, `email`, `password_hash`, `role`, `unive
 -- Table structure for table `waitlist`
 --
 
-DROP TABLE IF EXISTS `waitlist`;
-CREATE TABLE IF NOT EXISTS `waitlist` (
-  `id` int UNSIGNED NOT NULL AUTO_INCREMENT,
-  `booking_id` int UNSIGNED NOT NULL,
-  `resource_id` int UNSIGNED NOT NULL,
-  `user_id` int UNSIGNED NOT NULL,
+CREATE TABLE `waitlist` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `resource_id` int(10) UNSIGNED NOT NULL,
+  `user_id` int(10) UNSIGNED NOT NULL,
   `start_time` datetime NOT NULL,
   `end_time` datetime NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `fk_waitlist_booking` (`booking_id`),
-  KEY `fk_waitlist_resource` (`resource_id`),
-  KEY `fk_waitlist_user` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `bookings`
+--
+ALTER TABLE `bookings`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_bookings_user` (`user_id`),
+  ADD KEY `idx_bookings_resource_time` (`resource_id`,`start_time`,`end_time`);
+
+--
+-- Indexes for table `departments`
+--
+ALTER TABLE `departments`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `notifications`
+--
+ALTER TABLE `notifications`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_notifications_user` (`user_id`),
+  ADD KEY `fk_notifications_booking` (`booking_id`);
+
+--
+-- Indexes for table `resources`
+--
+ALTER TABLE `resources`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `settings`
+--
+ALTER TABLE `settings`
+  ADD PRIMARY KEY (`setting_key`);
+
+--
+-- Indexes for table `support_messages`
+--
+ALTER TABLE `support_messages`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_support_sender` (`sender_id`),
+  ADD KEY `fk_support_receiver` (`receiver_id`);
+
+--
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `university_id` (`university_id`);
+
+--
+-- Indexes for table `waitlist`
+--
+ALTER TABLE `waitlist`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_waitlist_booking` (`booking_id`),
+  ADD KEY `fk_waitlist_resource` (`resource_id`),
+  ADD KEY `fk_waitlist_user` (`user_id`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `bookings`
+--
+ALTER TABLE `bookings`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+
+--
+-- AUTO_INCREMENT for table `departments`
+--
+ALTER TABLE `departments`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `notifications`
+--
+ALTER TABLE `notifications`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
+
+--
+-- AUTO_INCREMENT for table `resources`
+--
+ALTER TABLE `resources`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
+-- AUTO_INCREMENT for table `support_messages`
+--
+ALTER TABLE `support_messages`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+
+--
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1000;
+
+--
+-- AUTO_INCREMENT for table `waitlist`
+--
+ALTER TABLE `waitlist`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Constraints for dumped tables

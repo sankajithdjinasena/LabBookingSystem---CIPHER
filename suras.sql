@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     email         VARCHAR(190)        NOT NULL UNIQUE,
     password_hash VARCHAR(255)        NOT NULL,
     role          ENUM('student','faculty','project_lead','admin') NOT NULL DEFAULT 'student',
+    university_id VARCHAR(50)         NULL UNIQUE,
     department    VARCHAR(120)        NULL,
     status        ENUM('active','suspended') NOT NULL DEFAULT 'active',
     created_at    TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -158,9 +159,9 @@ INSERT INTO settings (setting_key, setting_value, label, description) VALUES
 -- PHP's password_verify() accepts $2b$ the same as $2y$.)
 -- Change these passwords after first login in any real deployment.
 -- ---------------------------------------------------------
-INSERT INTO users (full_name, email, password_hash, role, department) VALUES
-('Harol Maxilan',        'harol.admin@university.edu',  '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'admin',        'Resource Office'),
-('Dr. A. Perera',        'a.perera@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'faculty',      'Computer Science'),
-('Sankajith Jinasena',   'sankajith@university.edu',    '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'project_lead', 'Computer Science'),
-('Mathurya Muralimohan', 'mathurya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science'),
-('Sanodya Jinadasa', 'sanodya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science');
+INSERT INTO users (full_name, email, password_hash, role, university_id, department) VALUES
+('Harol Maxilan',        'harol.admin@university.edu',  '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'admin',        NULL, 'Resource Office'),
+('Dr. A. Perera',        'a.perera@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'faculty',      NULL, 'Computer Science'),
+('Sankajith Jinasena',   'sankajith@university.edu',    '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'project_lead', NULL, 'Computer Science'),
+('Mathurya Muralimohan', 'mathurya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      '22CDS001', 'Computer Science'),
+('Sanodya Jinadasa', 'sanodya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      '22CDS002', 'Computer Science');

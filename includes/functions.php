@@ -21,9 +21,11 @@ require_once __DIR__ . '/mailer.php';
    Formatting helpers
    ===================================================================== */
 
-function e(?string $value): string
-{
-    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+if (!function_exists('e')) {
+    function e(?string $value): string
+    {
+        return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+    }
 }
 
 function category_label(string $category): string
@@ -436,13 +438,13 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                 'urgency'     => $urgency,
                 'team_size'   => $teamSize,
                 'score'       => $score,
-                'status'      => 'approved',
+                'status'      => 'pending', // ALWAYS require faculty/admin approval
             ]);
             $bookingId = (int) $pdo->lastInsertId();
-            create_notification($userId, $bookingId, 'approval', 'Your booking request has been approved automatically.');
+            create_notification($userId, $bookingId, 'submission', 'Your booking request has been submitted and is pending faculty/admin approval.');
 
             $pdo->commit();
-            return ['booking_id' => $bookingId, 'status' => 'approved', 'alternative' => null];
+            return ['booking_id' => $bookingId, 'status' => 'pending', 'alternative' => null];
         } else {
             $hasHigherPriority = true;
             foreach ($conflicts as $cb) {
@@ -632,7 +634,7 @@ function create_notification(int $userId, ?int $bookingId, string $type, string 
 function get_notifications(int $userId, int $limit = 20): array
 {
     $pdo = get_db_connection();
-    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = :user_id ORDER BY created_at DESC LIMIT :limit');
+    $stmt = $pdo->prepare('SELECT * FROM notifications WHERE user_id = :user_id AND created_at <= NOW() ORDER BY created_at DESC LIMIT :limit');
     $stmt->bindValue('user_id', $userId, PDO::PARAM_INT);
     $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
@@ -642,7 +644,7 @@ function get_notifications(int $userId, int $limit = 20): array
 function unread_notification_count(int $userId): int
 {
     $pdo = get_db_connection();
-    $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = :user_id AND is_read = 0');
+    $stmt = $pdo->prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = :user_id AND is_read = 0 AND created_at <= NOW()');
     $stmt->execute(['user_id' => $userId]);
     return (int) $stmt->fetch()['c'];
 }

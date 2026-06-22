@@ -1,0 +1,42 @@
+[
+  {
+    "keywords": ["waitlist", "wait list", "waiting"],
+    "answer": "If a resource is fully booked or a higher-priority user bumps your request, you are automatically placed on the waitlist. If the resource becomes available (e.g., due to cancellation), you'll be promoted and notified immediately!"
+  },
+  {
+    "keywords": ["priority", "urgent", "urgency", "bump"],
+    "answer": "Bookings are approved based on priority. Faculty and Project Leads have higher priority than students. Additionally, you can set the 'urgency' level from 1-5 when booking. High-urgency requests may bump lower-priority ones to the waitlist."
+  },
+  {
+    "keywords": ["fair share", "round robin", "long booking", "time limit"],
+    "answer": "To ensure everyone gets fair access, very long bookings (e.g., over 4 hours) may be automatically split into 2-hour segments using our Fair-Share Round Robin system, allowing other students a chance to book in between."
+  },
+  {
+    "keywords": ["cancel", "cancellation", "delete booking"],
+    "answer": "You can cancel your booking at any time from your 'My Bookings' dashboard. If you cancel, the system will automatically promote the next person on the waitlist into your slot."
+  },
+  {
+    "keywords": ["rules", "food", "drink", "behavior", "allowed"],
+    "answer": "Standard lab rules apply: No food or open drinks near the equipment. Please clean up your station after your booking ends, and ensure all devices are powered down if you're the last one leaving."
+  },
+  {
+    "keywords": ["late", "no show", "missed"],
+    "answer": "If you are more than 15 minutes late for your booking without notifying the faculty, your session may be cancelled and given to the next person on the waitlist."
+  },
+  {
+    "keywords": ["team", "group size", "capacity limit", "too many"],
+    "answer": "When booking a resource, make sure your 'Team Size' does not exceed the resource's max capacity. The AI Assistant will automatically filter out rooms that are too small for your group."
+  },
+  {
+    "keywords": ["broken", "maintenance", "fix", "not working"],
+    "answer": "If a resource or device is broken, please report it to the Resource Office or your Faculty immediately. The admin will mark the resource as 'Maintenance' so others cannot book it."
+  },
+  {
+    "keywords": ["faculty", "approval", "reject", "approve"],
+    "answer": "Certain bookings require Faculty approval. Faculty members can only approve bookings for students within their own department. You will receive a notification once your booking is approved or rejected."
+  },
+  {
+    "keywords": ["hours", "open", "weekend", "closing", "time"],
+    "answer": "Most labs are open from 8:00 AM to 8:00 PM on weekdays. Weekend access requires special approval from a Project Lead or Faculty member."
+  }
+]

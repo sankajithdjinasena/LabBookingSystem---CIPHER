@@ -158,6 +158,9 @@ function calculate_priority_score(int $urgency, int $teamSize, float $fairness, 
     $teamSizeNorm = max(0, min(10, $teamSize));
     $fairnessNorm = max(0, min(10, $fairness));
 
+    // Earlier requests (relative to "now") score slightly higher — a small
+    // first-come tiebreaker worth 10% of the total. We calculate the age in hours.
+
     $ageInHours      = (time() - strtotime($requestedAt)) / 3600;
     $requestTimeNorm = min(10, max(0, $ageInHours));
 
@@ -241,6 +244,7 @@ function get_overlapping_bookings(int $resourceId, string $start, string $end, ?
     $stmt->execute($params);
     return $stmt->fetchAll();
 }
+
 
 function create_booking(int $userId, int $resourceId, string $purpose, string $start, string $end, int $urgency, int $teamSize): array
 {

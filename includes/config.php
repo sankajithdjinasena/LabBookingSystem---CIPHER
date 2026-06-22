@@ -30,7 +30,8 @@ define('APP_NAME', 'SURAS');
 define('APP_FULL_NAME', 'Smart University Resource Allocation System');
 define('BASE_URL', '/'); // change to a sub-path if SURAS is not hosted at the web root
 
-// ---- Security headers -------------------------------------------------------
+// ---- Session & Security Headers ---------------------------------------------
+// Send security headers to protect the application
 header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');

@@ -15,6 +15,14 @@ if ($user['role'] === 'admin') {
     $brandUrl = 'faculty/approvals.php';
 }
 ?>
+<?php
+$brandUrl = 'dashboard.php';
+if ($user['role'] === 'admin') {
+    $brandUrl = 'admin/dashboard.php';
+} elseif ($user['role'] === 'faculty') {
+    $brandUrl = 'faculty/approvals.php';
+}
+?>
 <header class="site-header">
   <div class="container nav">
     <a href="<?php echo $brandUrl; ?>" class="brand">
@@ -33,6 +41,11 @@ if ($user['role'] === 'admin') {
         <li><a href="notifications.php" class="<?php echo $active === 'notifications' ? 'is-active' : ''; ?>">
           Notifications<?php if ($unread > 0): ?> <span class="nav-badge"><?php echo $unread; ?></span><?php endif; ?>
         </a></li>
+        <?php if ($user['role'] === 'admin'): ?>
+          <li><a href="admin/dashboard.php" style="color:var(--amber); font-weight:600;">Admin Console</a></li>
+        <?php elseif ($user['role'] === 'faculty'): ?>
+          <li><a href="faculty/approvals.php" style="color:var(--amber); font-weight:600;">Faculty Review</a></li>
+        <?php endif; ?>
       </ul>
     </nav>
 

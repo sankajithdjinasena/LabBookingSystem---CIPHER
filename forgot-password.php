@@ -55,7 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                       . "If you did not request this, you can safely ignore this email.\n\n"
                       . "— The SURAS Team";
 
-                send_email_notification($email, $user['full_name'], '[SURAS] Password Reset Request', $body);
+                // send_email_notification($email, $user['full_name'], '[SURAS] Password Reset Request', $body);
+                $result = send_email_notification($email, $user['full_name'], '[SURAS] Password Reset Request', $body);
+                if (!$result) {
+                    error_log("MAIL FAILED for: " . $email);
+                }
             }
         }
     }

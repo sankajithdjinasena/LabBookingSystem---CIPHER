@@ -12,13 +12,13 @@ use PHPMailer\PHPMailer\Exception;
 require_once __DIR__ . '/../vendor/autoload.php';
 
 // ─── SMTP Configuration ───────────────────────────────────────────────────────
-define('MAIL_HOST',       'smtp.gmail.com');
-define('MAIL_PORT',       587);
-define('MAIL_USERNAME',   'predictrasusl@gmail.com');
-define('MAIL_PASSWORD',   'mnpp xhlk yccw wcoo');   // Gmail App Password
-define('MAIL_FROM',       'predictrasusl@gmail.com');
-define('MAIL_FROM_NAME',  'SURAS Team');
-define('MAIL_ENCRYPTION', PHPMailer::ENCRYPTION_STARTTLS);
+defined('MAIL_HOST')       || define('MAIL_HOST',       'smtp.gmail.com');
+defined('MAIL_PORT')       || define('MAIL_PORT',       587);
+defined('MAIL_USERNAME')   || define('MAIL_USERNAME',   'predictrasusl@gmail.com');
+defined('MAIL_PASSWORD')   || define('MAIL_PASSWORD',   '');
+defined('MAIL_FROM')       || define('MAIL_FROM',       'predictrasusl@gmail.com');
+defined('MAIL_FROM_NAME')  || define('MAIL_FROM_NAME',  'SURAS Team');
+defined('MAIL_ENCRYPTION') || define('MAIL_ENCRYPTION', PHPMailer::ENCRYPTION_STARTTLS);
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**

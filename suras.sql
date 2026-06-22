@@ -110,6 +110,49 @@ CREATE TABLE IF NOT EXISTS notifications (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------
+-- Password resets
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS password_resets (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email      VARCHAR(190) NOT NULL,
+    token      VARCHAR(64)  NOT NULL UNIQUE,
+    expires_at DATETIME     NOT NULL,
+    used       TINYINT(1)   NOT NULL DEFAULT 0,
+    created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pr_email (email),
+    INDEX idx_pr_token (token)
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------
+-- Allocation policy settings
+-- One row per key; admin UI reads and writes these at runtime.
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS settings (
+    setting_key   VARCHAR(80)  NOT NULL PRIMARY KEY,
+    setting_value VARCHAR(255) NOT NULL,
+    label         VARCHAR(120) NOT NULL,
+    description   VARCHAR(300) NULL
+) ENGINE=InnoDB;
+
+INSERT INTO settings (setting_key, setting_value, label, description) VALUES
+('weight_urgency',      '0.40', 'Urgency weight',      'Proportion of the priority score driven by how urgent the request is (1–5 scale).'),
+('weight_team_size',    '0.30', 'Team size weight',    'Proportion driven by the number of people in the booking.'),
+('weight_fairness',     '0.20', 'Fairness weight',     'Proportion driven by how few recent bookings the requester has had.'),
+('weight_request_time', '0.10', 'Request time weight', 'Proportion given to how long ago the request was submitted (first-come tiebreaker).'),
+('rr_min_duration',     '14400','Round-robin threshold (seconds)', 'Bookings at or above this duration (in seconds) trigger fair-share splitting. Default 14400 = 4 hours.'),
+('rr_slot_duration',    '7200', 'Round-robin slot size (seconds)', 'Size of each fair-share slot in seconds. Default 7200 = 2 hours.'),
+('notify_email_enabled','0',    'Email notifications', 'Set to 1 to send email notifications via PHPMailer, 0 for in-app only.'),
+('notify_from_email',   'noreply@university.edu', 'Notification sender email', 'The From address used for all outgoing SURAS emails.'),
+('notify_from_name',    'SURAS Resource System',  'Notification sender name',  'The From name used for all outgoing SURAS emails.');
+
+-- ---------------------------------------------------------
+-- Notifications (updated ENUM with submission type)
+-- If you are upgrading an existing database run:
+--   ALTER TABLE notifications MODIFY type
+--     ENUM('submission','approval','rejection','cancellation','reminder','waitlist','alternative') NOT NULL;
+-- ---------------------------------------------------------
+
+-- ---------------------------------------------------------
 -- Sample accounts — all share the password: Password123!
 -- (bcrypt hash below was generated for that exact string;
 -- PHP's password_verify() accepts $2b$ the same as $2y$.)
@@ -119,9 +162,5 @@ INSERT INTO users (full_name, email, password_hash, role, department) VALUES
 ('Harol Maxilan',        'harol.admin@university.edu',  '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'admin',        'Resource Office'),
 ('Dr. A. Perera',        'a.perera@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'faculty',      'Computer Science'),
 ('Sankajith Jinasena',   'sankajith@university.edu',    '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'project_lead', 'Computer Science'),
-<<<<<<< HEAD
 ('Mathurya Muralimohan', 'mathurya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science'),
-('Sanodya Jinadasa', 'sanodya@university.edu',      '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science');
-=======
-('Mathurya Muralimohan', 'mathurya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science');
->>>>>>> 6392ecb24989b64684555b9db29e7e38d5f6fd25
+('Sanodya Jinadasa', 'sanodya@university.edu',     '$2b$12$83m9pMyfi7ubl7ZiBlrZL.umhpn3aWl/hbOFfKP.LFa7iUXy9VJtW', 'student',      'Computer Science');

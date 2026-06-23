@@ -126,12 +126,21 @@ $avgUtil = count($utilSummary) > 0
 
 /* ── Trigger items ── */
 .trigger-list { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
-.trigger-item { display:flex; gap:10px; align-items:flex-start; padding:7px 12px; border-radius:6px; border-left:3px solid; font-size:12px; }
+.trigger-item { display:flex; gap:10px; align-items:flex-start; padding:9px 12px; border-radius:6px; border-left:3px solid; font-size:12px; }
 .trigger-item.critical { border-left-color:#b91c1c; background:#fef2f2; }
 .trigger-item.high     { border-left-color:#c2410c; background:#fff7ed; }
 .trigger-item.medium   { border-left-color:#b45309; background:#fffbeb; }
+.trigger-item.low      { border-left-color:#475569; background:#f8fafc; }
 .trigger-type { width:70px; flex-shrink:0; font-weight:700; color:inherit; text-transform:uppercase; font-size:10px; letter-spacing:.3px; padding-top:1px; }
-.trigger-detail-text { color:#555; line-height:1.5; }
+.trigger-content { flex:1; display:flex; flex-direction:column; gap:6px; }
+.trigger-detail-text { color:#555; line-height:1.4; }
+
+/* ── Live threshold meter ── */
+.trigger-meter-wrap { display:flex; align-items:center; gap:10px; }
+.trigger-meter-bg { flex:1; max-width:180px; height:6px; background:#e2e8f0; border-radius:6px; position:relative; overflow:hidden; }
+.trigger-meter-fill { height:100%; border-radius:6px; }
+.trigger-meter-marker { position:absolute; top:0; bottom:0; width:2px; background:#1e293b; z-index:2; }
+.trigger-meter-lbl { font-size:10px; font-weight:700; color:#64748b; font-variant-numeric: tabular-nums; }
 
 /* ── Action buttons ── */
 .action-bar { display:flex; gap:8px; flex-wrap:wrap; }
@@ -326,7 +335,36 @@ $avgUtil = count($utilSummary) > 0
           <?php foreach ($entry['triggers'] as $t): ?>
           <div class="trigger-item <?= $t['severity'] ?>">
             <div class="trigger-type"><?= strtoupper(str_replace('_', ' ', $t['type'])) ?></div>
-            <div class="trigger-detail-text"><strong><?= e($t['label']) ?></strong> — <?= e($t['detail']) ?></div>
+            <div class="trigger-content">
+              <div class="trigger-detail-text"><strong><?= e($t['label']) ?></strong> — <?= e($t['detail']) ?></div>
+              
+              <?php if (isset($t['current_val']) && isset($t['threshold_val'])): 
+                // Calculate meter fill % (capped at 100%)
+                $maxDisplay = max($t['current_val'], $t['threshold_val'] * 2);
+                if ($t['type'] === 'urgency_abuse') { $maxDisplay = 100; }
+                $fillPct = min(100, ($t['current_val'] / max(1, $maxDisplay)) * 100);
+                $markerPct = min(100, ($t['threshold_val'] / max(1, $maxDisplay)) * 100);
+                
+                $fillColor = '#475569';
+                if ($t['severity'] === 'critical') {
+                    $fillColor = '#b91c1c';
+                } elseif ($t['severity'] === 'high') {
+                    $fillColor = '#c2410c';
+                } elseif ($t['severity'] === 'medium') {
+                    $fillColor = '#b45309';
+                }
+              ?>
+              <div class="trigger-meter-wrap">
+                <div class="trigger-meter-bg" title="Threshold marker at <?= $t['threshold_val'] ?>">
+                  <div class="trigger-meter-fill" style="width:<?= $fillPct ?>%; background:<?= $fillColor ?>;"></div>
+                  <div class="trigger-meter-marker" style="left:<?= $markerPct ?>%;"></div>
+                </div>
+                <div class="trigger-meter-lbl">
+                  <?= $t['current_val'] ?> / <?= $t['threshold_val'] ?> threshold
+                </div>
+              </div>
+              <?php endif; ?>
+            </div>
           </div>
           <?php endforeach; ?>
         </div>

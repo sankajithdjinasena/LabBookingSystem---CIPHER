@@ -212,6 +212,8 @@ function detect_anomalies(): array
             'severity' => $row['weekly_count'] > 15 ? 'high' : 'medium',
             'label'    => 'High Volume Booker',
             'detail'   => "{$row['weekly_count']} bookings in the last 7 days",
+            'current_val'   => (int)$row['weekly_count'],
+            'threshold_val' => 15
         ];
     }
 
@@ -240,6 +242,8 @@ function detect_anomalies(): array
             'severity' => $row['urgency_pct'] >= 90 ? 'critical' : 'high',
             'label'    => 'Urgency Score Anomaly',
             'detail'   => "{$row['urgency_pct']}% of bookings submitted with maximum urgency",
+            'current_val'   => (int)$row['urgency_pct'],
+            'threshold_val' => 70
         ];
     }
 
@@ -268,6 +272,8 @@ function detect_anomalies(): array
             'severity' => 'medium',
             'label'    => 'High Resource Dependency',
             'detail'   => "Booked \"{$row['resource_name']}\" {$row['repeat_count']} times in 7 days",
+            'current_val'   => (int)$row['repeat_count'],
+            'threshold_val' => 3
         ];
     }
 
@@ -295,6 +301,8 @@ function detect_anomalies(): array
             'severity' => 'low',
             'label'    => 'Batch Booking Session',
             'detail'   => "{$row['burst_count']} bookings submitted within 10 minutes",
+            'current_val'   => (int)$row['burst_count'],
+            'threshold_val' => 3
         ];
     }
 

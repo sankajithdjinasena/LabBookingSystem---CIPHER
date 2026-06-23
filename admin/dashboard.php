@@ -10,8 +10,13 @@ require_role(['admin'], 1);
 $user = current_user();
 $active = 'admin_dashboard';
 
-$stats = admin_overview_stats();
+$stats    = admin_overview_stats();
 $activity = recent_activity(8);
+
+// Quick intelligence counts (lightweight)
+require_once __DIR__ . '/../includes/analytics.php';
+$flaggedCount  = get_flagged_user_count();
+$forecastAlerts = get_forecast_alert_count();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,9 +39,29 @@ $activity = recent_activity(8);
         <p>How the resource ledger is running right now.</p>
       </div>
       <div style="display:flex; gap:10px;">
+        <a href="analytics.php" class="btn btn-ghost">🧠 Intelligence</a>
         <a href="bookings.php?status=pending" class="btn btn-amber">Review pending requests</a>
       </div>
     </div>
+
+    <?php if ($flaggedCount > 0 || $forecastAlerts > 0): ?>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+      <?php if ($flaggedCount > 0): ?>
+      <div class="banner banner-error" style="cursor:pointer;" onclick="location.href='analytics.php#anomalies'">
+        <span>🚨</span>
+        <span><strong><?= $flaggedCount ?> user<?= $flaggedCount > 1 ? 's' : '' ?> flagged</strong> for suspicious booking activity.
+        <a href="analytics.php" style="color:inherit;text-decoration:underline;margin-left:8px;">Review in Intelligence Dashboard &rarr;</a></span>
+      </div>
+      <?php endif; ?>
+      <?php if ($forecastAlerts > 0): ?>
+      <div class="banner banner-warn" style="cursor:pointer;" onclick="location.href='analytics.php'">
+        <span>⚠️</span>
+        <span><strong><?= $forecastAlerts ?> high-utilization day<?= $forecastAlerts > 1 ? 's' : '' ?> predicted</strong> in the next 7 days.
+        <a href="analytics.php" style="color:inherit;text-decoration:underline;margin-left:8px;">View Forecast &rarr;</a></span>
+      </div>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="stat-grid">
       <div class="stat-card">

@@ -263,9 +263,11 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
         $userStmt->execute([$userId]);
         $role = $userStmt->fetchColumn();
         
+        // Only the 'admin' role gets auto-approved bookings.
+        // Faculty, project_lead, and students always go through pending approval.
         $currentUser = function_exists('current_user') && is_logged_in() ? current_user() : null;
         $activeRole = $currentUser ? $currentUser['role'] : $role;
-        $isAdminOverride = in_array($activeRole, ['admin', 'faculty', 'project_lead']);
+        $isAdminOverride = ($activeRole === 'admin');
 
         $conflicts = get_overlapping_bookings($resourceId, $start, $end);
         
@@ -365,6 +367,10 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                     $assignedTeamSize = ($assignedUser === 'A') ? $mainConflict['team_size'] : $teamSize;
                     $assignedScore = ($assignedUser === 'A') ? $scoreA : $scoreB;
 
+                    // Determine status per user for this slot
+                    $slotUserRole = ($assignedUserId === $userId) ? $activeRole : $mainConflict['user_role'] ?? 'student';
+                    $slotStatus = ($slotUserRole === 'admin') ? 'approved' : 'pending';
+
                     $stmtSlot = $pdo->prepare(
                         'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
                          VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
@@ -378,7 +384,7 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                         'urgency'     => $assignedUrgency,
                         'team_size'   => $assignedTeamSize,
                         'score'       => $assignedScore,
-                        'status'      => 'approved',
+                        'status'      => $slotStatus,
                     ]);
 
                     $timeString = date('g:i A', $cursor) . '–' . date('g:i A', $currentSlotEnd);
@@ -395,6 +401,8 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                 // Non-overlapping parts of new booking B
                 $bStart = strtotime($start);
                 $bEnd = strtotime($end);
+                $newUserStatus = ($activeRole === 'admin') ? 'approved' : 'pending';
+
                 if ($bStart < $overlapStart) {
                     $stmtPreB = $pdo->prepare(
                         'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
@@ -409,7 +417,7 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                         'urgency'     => $urgency,
                         'team_size'   => $teamSize,
                         'score'       => $scoreB,
-                        'status'      => 'approved',
+                        'status'      => $newUserStatus,
                     ]);
                     $slotsAllocatedToB[] = date('g:i A', $bStart) . '–' . date('g:i A', $overlapStart);
                 }
@@ -427,7 +435,7 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                         'urgency'     => $urgency,
                         'team_size'   => $teamSize,
                         'score'       => $scoreB,
-                        'status'      => 'approved',
+                        'status'      => $newUserStatus,
                     ]);
                     $slotsAllocatedToB[] = date('g:i A', $overlapEnd) . '–' . date('g:i A', $bEnd);
                 }
@@ -509,6 +517,8 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                     create_notification((int) $cb['user_id'], (int) $cb['id'], $cbAlt ? 'alternative' : 'waitlist', $cbMsg);
                 }
 
+                // Even if a student outscores others, they still need admin approval
+                $bumpStatus = $isAdminOverride ? 'approved' : 'pending';
                 $stmt = $pdo->prepare(
                     'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
                      VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
@@ -522,13 +532,17 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                     'urgency'     => $urgency,
                     'team_size'   => $teamSize,
                     'score'       => $score,
-                    'status'      => 'approved',
+                    'status'      => $bumpStatus,
                 ]);
                 $bookingId = (int) $pdo->lastInsertId();
-                create_notification($userId, $bookingId, 'approval', 'Your booking request overrode an existing lower-priority booking.');
+                if ($isAdminOverride) {
+                    create_notification($userId, $bookingId, 'approval', 'Your booking request overrode an existing lower-priority booking and was auto-approved.');
+                } else {
+                    create_notification($userId, $bookingId, 'submission', 'Your high-priority booking request has been submitted and is pending admin approval.');
+                }
 
                 $pdo->commit();
-                return ['booking_id' => $bookingId, 'status' => 'approved', 'alternative' => null];
+                return ['booking_id' => $bookingId, 'status' => $bumpStatus, 'alternative' => null];
             } else {
                 // Place new request on waitlist
                 $stmt = $pdo->prepare(

@@ -11,7 +11,7 @@ $isAdmin = $user['role'] === 'admin';
 <header class="site-header">
   <div class="container nav">
     <a href="<?php echo $isAdmin ? 'dashboard.php' : '../dashboard.php'; ?>" class="brand">
-      <img src="assets/img/logo.png" alt="NEXLAB Logo" class="brand-mark-img" style="    height: 85px;
+      <img src="../assets/img/logo.png" alt="NEXLAB Logo" class="brand-mark-img" style="    height: 85px;
     width: auto;
     object-fit: contain;
     border-radius: 19%;">

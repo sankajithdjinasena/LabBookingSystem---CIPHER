@@ -39,7 +39,7 @@ $forecastAlerts = get_forecast_alert_count();
         <p>How the resource ledger is running right now.</p>
       </div>
       <div style="display:flex; gap:10px;">
-        <a href="analytics.php" class="btn btn-ghost">🧠 Intelligence</a>
+        <a href="analytics.php" class="btn btn-ghost">Intelligence</a>
         <a href="bookings.php?status=pending" class="btn btn-amber">Review pending requests</a>
       </div>
     </div>

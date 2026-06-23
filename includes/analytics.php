@@ -202,16 +202,16 @@ function detect_anomalies(): array
         WHERE b.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
           AND u.role != 'admin'
         GROUP BY u.id
-        HAVING weekly_count > 5
+        HAVING weekly_count > 15
         ORDER BY weekly_count DESC
     ");
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $anomalies[$row['id']]['user']    = $row;
         $anomalies[$row['id']]['triggers'][] = [
             'type'     => 'high_frequency',
-            'severity' => $row['weekly_count'] > 10 ? 'critical' : 'high',
-            'label'    => '📅 High Booking Frequency',
-            'detail'   => "{$row['weekly_count']} bookings in the last 7 days (threshold: 5)",
+            'severity' => $row['weekly_count'] > 25 ? 'high' : 'medium',
+            'label'    => 'High Volume Booker',
+            'detail'   => "{$row['weekly_count']} bookings in the last 7 days (threshold: 15)",
         ];
     }
 
@@ -238,7 +238,7 @@ function detect_anomalies(): array
         $anomalies[$row['id']]['triggers'][] = [
             'type'     => 'urgency_abuse',
             'severity' => $row['urgency_pct'] >= 90 ? 'critical' : 'high',
-            'label'    => '🚨 Urgency Score Manipulation',
+            'label'    => 'Urgency Score Manipulation',
             'detail'   => "{$row['urgency_pct']}% of bookings submitted with maximum urgency (threshold: 70%)",
         ];
     }
@@ -266,7 +266,7 @@ function detect_anomalies(): array
         $anomalies[$row['id']]['triggers'][] = [
             'type'     => 'resource_hoarding',
             'severity' => 'high',
-            'label'    => '🏪 Resource Hoarding',
+            'label'    => 'Resource Hoarding',
             'detail'   => "Booked \"{$row['resource_name']}\" {$row['repeat_count']} times in 7 days (threshold: 3)",
         ];
     }
@@ -293,7 +293,7 @@ function detect_anomalies(): array
         $anomalies[$row['id']]['triggers'][] = [
             'type'     => 'rapid_fire',
             'severity' => 'medium',
-            'label'    => '⚡ Rapid-Fire Booking',
+            'label'    => 'Rapid-Fire Booking',
             'detail'   => "{$row['burst_count']} bookings submitted within 10 minutes on " . date('M j', strtotime($row['burst_start'])),
         ];
     }

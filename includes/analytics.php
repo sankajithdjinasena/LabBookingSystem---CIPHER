@@ -186,7 +186,7 @@ function get_utilization_summary(int $lookbackDays = 30): array
  * Run full anomaly detection scan.
  * Returns array of anomalous users with reasons and severity.
  */
-function detect_anomalies(): array
+function detect_anomalies(int $freq_threshold = 40, int $burst_threshold = 40): array
 {
     $pdo = get_db_connection();
     $anomalies = [];
@@ -202,18 +202,19 @@ function detect_anomalies(): array
         WHERE b.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
           AND u.role != 'admin'
         GROUP BY u.id
-        HAVING weekly_count > 5
+        HAVING weekly_count >= :thresh
         ORDER BY weekly_count DESC
     ");
+    $stmt->execute(['thresh' => $freq_threshold]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $anomalies[$row['id']]['user']    = $row;
         $anomalies[$row['id']]['triggers'][] = [
             'type'     => 'high_frequency',
-            'severity' => $row['weekly_count'] > 15 ? 'high' : 'medium',
+            'severity' => $row['weekly_count'] > ($freq_threshold + 10) ? 'high' : 'medium',
             'label'    => 'High Volume Booker',
             'detail'   => "{$row['weekly_count']} bookings in the last 7 days",
             'current_val'   => (int)$row['weekly_count'],
-            'threshold_val' => 15
+            'threshold_val' => $freq_threshold
         ];
     }
 
@@ -289,9 +290,10 @@ function detect_anomalies(): array
         WHERE b.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
           AND u.role != 'admin'
         GROUP BY u.id, DATE(b.created_at), HOUR(b.created_at), FLOOR(MINUTE(b.created_at) / 10)
-        HAVING burst_count >= 3
+        HAVING burst_count >= :thresh
         ORDER BY burst_count DESC
     ");
+    $stmt->execute(['thresh' => $burst_threshold]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         if (!isset($anomalies[$row['id']]['user'])) {
             $anomalies[$row['id']]['user'] = $row;
@@ -302,7 +304,7 @@ function detect_anomalies(): array
             'label'    => 'Batch Booking Session',
             'detail'   => "{$row['burst_count']} bookings submitted within 10 minutes",
             'current_val'   => (int)$row['burst_count'],
-            'threshold_val' => 3
+            'threshold_val' => $burst_threshold
         ];
     }
 

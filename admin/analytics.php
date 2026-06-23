@@ -42,7 +42,11 @@ $csrf = $_SESSION['csrf_token'];
 
 // ── Load data ────────────────────────────────────────────────
 $forecast       = get_demand_forecast(7);
-$anomalies      = detect_anomalies();
+
+$minFreq  = max(1, (int)($_GET['min_freq'] ?? 40));
+$minRapid = max(1, (int)($_GET['min_rapid'] ?? 40));
+$anomalies      = detect_anomalies($minFreq, $minRapid);
+
 $utilSummary    = get_utilization_summary(30);
 
 $forecastByDate = [];
@@ -155,6 +159,14 @@ $avgUtil = count($utilSummary) > 0
 .act-btn-reactivate:hover { background:#dcfce7; }
 .act-btn-view     { background:#f9fafb; color:#3730a3; border-color:#e0e7ff; text-decoration:none; display:inline-flex; align-items:center; }
 .act-btn-view:hover { background:#eef2ff; }
+
+/* ── Dynamic Filter ── */
+.filter-bar { display:flex; gap:16px; padding:12px 24px; background:#f8fafc; border-bottom:1px solid #f0f0f0; align-items:center; flex-wrap:wrap; }
+.filter-group { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:#475569; }
+.filter-input { width:60px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; font-weight:700; color:#1e293b; text-align:center; }
+.filter-input:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 2px rgba(99,102,241,0.2); }
+.filter-btn { padding:6px 14px; background:#1e293b; color:#fff; border:none; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer; transition:background .15s; }
+.filter-btn:hover { background:#0f172a; }
 
 /* ── Util summary rows ── */
 .util-row { display:flex; align-items:center; gap:16px; padding:11px 24px; border-bottom:1px solid #fafafa; }
@@ -294,10 +306,22 @@ $avgUtil = count($utilSummary) > 0
     <div class="section-header">
       <div class="section-header-left">
         <h2>Behavioral Activity & Flags</h2>
-        <p>Users exhibiting notable booking behaviour in the last 7&#8211;30 days. Checks: high volume, urgency usage, resource dependency, and batch-booking sessions.</p>
+        <p>Users exhibiting notable booking behaviour in the last 7&#8211;30 days.</p>
       </div>
       <span class="section-tag tag-anomaly">Activity Flags</span>
     </div>
+    
+    <form class="filter-bar" method="GET" action="analytics.php#anomalies">
+      <div class="filter-group">
+        <label>High Volume Threshold (7d):</label>
+        <input type="number" name="min_freq" value="<?= $minFreq ?>" min="1" class="filter-input" title="Bookings per week">
+      </div>
+      <div class="filter-group">
+        <label>Batch Session Threshold (10m):</label>
+        <input type="number" name="min_rapid" value="<?= $minRapid ?>" min="1" class="filter-input" title="Bookings per 10 minutes">
+      </div>
+      <button type="submit" class="filter-btn">Apply Filters</button>
+    </form>
 
     <?php if (empty($anomalies)): ?>
       <div class="no-data-state">

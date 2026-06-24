@@ -77,7 +77,7 @@ NEXLAB replaces ad-hoc spreadsheets and email chains with an automated, priority
 - **Backend:** PHP 7.4+ with PDO (prepared statements throughout)
 - **Database:** MySQL 5.7+ / MariaDB 10.4+
 - **Frontend:** Vanilla HTML5, CSS3, JavaScript (no frameworks)
-- **Email:** PHPMailer (optional)
+- **Email:** PHPMailer
 - **Server:** Apache (WAMP/XAMPP recommended for local development)
 
 ---
@@ -89,7 +89,7 @@ NEXLAB replaces ad-hoc spreadsheets and email chains with an automated, priority
 | PHP | 7.4 or higher |
 | MySQL | 5.7 or higher (MariaDB 10.4+ also works) |
 | Apache | Any recent version with `mod_rewrite` |
-| Composer | Only needed for PHPMailer (optional) |
+| Composer | Only needed for PHPMailer |
 
 WAMP 3.x or XAMPP 8.x on Windows covers PHP + MySQL + Apache in one installer and is the recommended local setup.
 
@@ -100,14 +100,14 @@ WAMP 3.x or XAMPP 8.x on Windows covers PHP + MySQL + Apache in one installer an
 ### 1 — Clone the repository
 
 ```bash
-git clone https://github.com/your-repo/Lab-Booking-System.git
+git clone https://github.com/sankajithdjinasena/NEXLAB.git
 ```
 
 Place the folder into your web root:
 
-- **WAMP Windows:** `C:\wamp64\www\Lab-Booking-System\`
-- **XAMPP Windows:** `C:\xampp\htdocs\Lab-Booking-System\`
-- **Linux/macOS:** `/var/www/html/Lab-Booking-System/`
+- **WAMP Windows:** `C:\wamp64\www\NEXLAB\`
+- **XAMPP Windows:** `C:\xampp\htdocs\NEXLAB\`
+- **Linux/macOS:** `/var/www/html/NEXLAB/`
 
 ### 2 — Import the database
 
@@ -115,13 +115,13 @@ Open **phpMyAdmin** (http://localhost/phpmyadmin) and:
 
 1. Click **New** → create a database named `NEXLAB` with collation `utf8mb4_unicode_ci`
 2. Select the `NEXLAB` database → click **Import**
-3. Choose `nexlab.sql` from the project root → click **Go**
+3. Choose `nexlabdb.sql` from the project root → click **Go**
 
 Or from the command line:
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE NEXLAB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -u root -p NEXLAB < nexlab.sql
+mysql -u root -p NEXLAB < nexlabdb.sql
 ```
 
 ### 3 — Configure the database connection
@@ -135,10 +135,10 @@ define('DB_USER', 'root');      // your MySQL username
 define('DB_PASS', '');          // your MySQL password (blank for WAMP/XAMPP default)
 ```
 
-### 4 — (Optional) Configure email notifications
+### 4 — Configure email notifications
 
 ```bash
-cd Lab-Booking-System
+cd NEXLAB
 composer require phpmailer/phpmailer
 ```
 
@@ -157,7 +157,7 @@ Go to **Admin → Settings** and toggle **Enable email notifications** on.
 ### 5 — Open in your browser
 
 ```
-http://localhost/Lab-Booking-System/
+http://localhost/NEXLAB/
 ```
 
 ---
@@ -260,7 +260,7 @@ This is enforced as a **UI policy** — not a database constraint — to preserv
 ## Project Structure
 
 ```
-Lab-Booking-System/
+NEXLAB/
 ├── index.php                   Public landing page
 ├── login.php                   Sign-in
 ├── register.php                Account creation
@@ -273,13 +273,22 @@ Lab-Booking-System/
 ├── my-bookings.php             Booking history + cancel
 ├── notifications.php           Notification history
 ├── support.php                 Student support chat
-├── nexlab.sql                  Full schema + seed data
+├── privacy-policy.php          Privacy policy page
+├── terms.php                   Terms of service
+├── nexlabdb.sql                Full schema + seed data
+├── create_mock_faculty.php     Dev utility — seed faculty accounts
+├── create_support_table.php    Dev utility — create support table
+├── test.php                    Dev / debug scratch file
+├── composer.json               PHP dependency manifest
+├── composer.lock               Locked dependency versions
+├── .gitignore                  Git ignore rules
 │
 ├── admin/
 │   ├── dashboard.php           Admin overview + activity feed
 │   ├── resources.php           Add / edit / delete resources
 │   ├── users.php               Manage user accounts and roles
 │   ├── bookings.php            Approve / reject booking requests
+│   ├── booking.php             Single booking detail view
 │   ├── reports.php             Analytics and booking trends
 │   ├── support.php             Admin support ticket management
 │   ├── analytics.php           Intelligence Dashboard
@@ -301,10 +310,25 @@ Lab-Booking-System/
 │   ├── app-navbar.php          Authenticated user navigation
 │   └── ops-navbar.php          Admin/faculty vertical sidebar nav
 │
-└── assets/
-    ├── css/style.css           Full design system stylesheet
-    ├── js/main.js              Client-side interaction layer
-    └── img/                    Static images and logo
+├── assets/
+│   ├── css/
+│   │   ├── style.css           Full design system stylesheet
+│   │   └── assistant.css       AI assistant styles
+│   ├── js/
+│   │   ├── main.js             Client-side interaction layer
+│   │   ├── assistant.js        AI assistant logic
+│   │   ├── support.js          Support chat client
+│   │   └── admin_support.js    Admin support interface
+│   └── img/
+│       ├── logo.png            App logo
+│       └── nexlab_logo.png     NexLab brand logo
+│
+├── api/                        API endpoints (folder)
+│
+└── vendor/                     Composer-managed dependencies
+    ├── composer/
+    ├── phpmailer/
+    └── autoload.php
 ```
 
 ---

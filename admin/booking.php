@@ -56,6 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'That resource is currently unavailable.';
     } elseif ($old['purpose'] === '') {
         $error = 'Please tell us what the booking is for.';
+    } elseif ($resource['capacity'] && $old['team_size'] > (int) $resource['capacity']) {
+        $error = "Team size ({$old['team_size']}) exceeds this resource's capacity of {$resource['capacity']}.";
     } elseif (strtotime($end) <= strtotime($start)) {
         $error = 'End date/time must be strictly after the start date/time.';
     } elseif (strtotime($start) < time() - 3600) {
@@ -179,9 +181,12 @@ $csrf_token = $_SESSION['csrf_token'];
         </div>
 
         <div class="field">
-            <label for="team_size">Team size</label>
-            <div class="field-control">
-            <input type="number" id="team_size" name="team_size" min="1" max="50" value="<?php echo (int) $old['team_size']; ?>" required>
+            <div class="field">
+                <label for="team_size">Team size (No of people)</label>
+                <div class="field-control">
+                <input type="number" id="team_size" name="team_size" min="1" value="<?php echo (int) $old['team_size']; ?>" required>
+                </div>
+                <p style="font-size:12px; color:#888; margin-top:4px;">How many people will use this resource together.</p>
             </div>
         </div>
         </div>

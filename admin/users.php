@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($actionType === 'update') {
             $role = $_POST['role'] ?? 'student';
             $status = $_POST['status'] ?? 'active';
-            if (in_array($role, ['student', 'faculty', 'project_lead', 'admin'], true)
+            if (in_array($role, ['student', 'faculty', 'project_lead', 'admin','pfaculty'], true)
                 && in_array($status, ['active', 'suspended'], true)) {
                 update_user($targetId, $role, $status);
                 $success = 'User updated.';
@@ -46,7 +46,7 @@ $users = get_all_users($search, $roleFilter);
 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 $csrf_token = $_SESSION['csrf_token'];
 
-$roles = ['all' => 'All roles', 'student' => 'Students', 'project_lead' => 'Project Leads', 'faculty' => 'Faculty', 'admin' => 'Admins'];
+$roles = ['all' => 'All roles', 'student' => 'Students', 'project_lead' => 'Project Leads', 'faculty' => 'Faculty', 'admin' => 'Admins', 'pfaculty' => 'Pending Faculty'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -114,9 +114,9 @@ $roles = ['all' => 'All roles', 'student' => 'Students', 'project_lead' => 'Proj
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="user_id" value="<?php echo (int) $u['id']; ?>">
                     <select name="role" style="font-size:12.5px; padding:6px 8px; border:1px solid var(--line); border-radius:4px;" onchange="this.form.requestSubmit();">
-                      <?php foreach (['student','faculty','project_lead','admin'] as $r): ?>
-                        <option value="<?php echo $r; ?>" <?php echo $u['role'] === $r ? 'selected' : ''; ?>><?php echo e(role_label($r)); ?></option>
-                      <?php endforeach; ?>
+                    <?php foreach (['student','faculty','project_lead','admin','pfaculty'] as $r): ?>
+                      <option value="<?php echo $r; ?>" <?php echo $u['role'] === $r ? 'selected' : ''; ?>><?php echo e(role_label($r)); ?></option>
+                    <?php endforeach; ?>
                     </select>
                     <input type="hidden" name="status" value="<?php echo e($u['status']); ?>">
                   </form>

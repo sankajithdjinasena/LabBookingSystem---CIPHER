@@ -7,9 +7,48 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/admin-functions.php';
 
-require_role(['faculty', 'admin'], 1);
+require_role(['faculty', 'admin', 'pfaculty'], 1);
 $user = current_user();
 $active = 'faculty_approvals';
+
+// Pending-faculty accounts aren't approved yet — show a holding message only.
+if ($user['role'] === 'pfaculty') {
+    ?>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approvals — NEXLAB Faculty</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    </head>
+    <body>
+
+    <?php include __DIR__ . '/../includes/ops-navbar.php'; ?>
+
+    <main class="app-main">
+      <div class="container">
+
+        <div class="page-head">
+          <div>
+            <h1>Booking approvals</h1>
+          </div>
+        </div>
+
+        <div class="empty-state">
+          <span class="empty-icon">⏳</span>
+          <p>Your faculty account is still pending admin approval. You'll get access to booking approvals once an administrator confirms your account.</p>
+        </div>
+
+      </div>
+    </main>
+
+    <script src="../assets/js/main.js"></script>
+    </body>
+    </html>
+    <?php
+    exit;
+}
 
 $message = '';
 

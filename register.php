@@ -54,6 +54,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($check->fetch()) {
             $error = 'An account with that email already exists. Try signing in instead.';
         } else {
+            // Anyone registering as "Faculty Member" starts out pending admin
+            // verification, not with live reviewer access.
+            $storedRole = ($old['role'] === 'faculty') ? 'pfaculty' : $old['role'];
+
             $insert = $pdo->prepare(
                 'INSERT INTO users (full_name, email, password_hash, role, university_id, department, status)
                  VALUES (:full_name, :email, :password_hash, :role, :university_id, :department, :status)'
@@ -62,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'full_name'     => $old['full_name'],
                 'email'         => $old['email'],
                 'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-                'role'          => $old['role'],
+                'role'          => $storedRole,
                 'university_id' => $old['university_id'] !== '' ? $old['university_id'] : null,
                 'department'    => $old['department'] !== '' ? $old['department'] : null,
                 // Faculty accounts are flagged for admin review before they gain reviewer access.
@@ -74,13 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'id'            => $userId,
                 'full_name'     => $old['full_name'],
                 'email'         => $old['email'],
-                'role'          => $old['role'],
+                'role'          => $storedRole,
                 'university_id' => $old['university_id'],
                 'department'    => $old['department'],
                 'status'        => 'active',
             ]);
 
-            header('Location: ' . dashboard_for_role($old['role']) . '?welcome=1');
+            header('Location: ' . dashboard_for_role($storedRole) . '?welcome=1');
             exit;
         }
     }

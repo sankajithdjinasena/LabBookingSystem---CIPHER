@@ -77,6 +77,7 @@ function role_label(string $role): string
         case 'project_lead': return 'Project Team Leader';
         case 'admin':        return 'Administrator';
         case 'faculty':      return 'Faculty Member';
+        case 'pfaculty':     return 'Pending Faculty Member';
         default:             return 'Student';
     }
 }

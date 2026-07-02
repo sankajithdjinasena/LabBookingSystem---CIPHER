@@ -66,6 +66,7 @@ function dashboard_for_role(string $role): string
     switch ($role) {
         case 'admin':   return 'admin/dashboard.php';
         case 'faculty': return 'faculty/approvals.php';
+        case 'pfaculty': return 'faculty/approvals.php';
         default:        return 'dashboard.php'; // student, project_lead
     }
 }

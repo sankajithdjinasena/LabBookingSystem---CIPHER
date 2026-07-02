@@ -9,18 +9,13 @@ $active = $active ?? '';
 $unread = function_exists('unread_notification_count') ? unread_notification_count($user['id']) : 0;
 
 $brandUrl = 'dashboard.php';
+$supportUrl = 'support.php';
 if ($user['role'] === 'admin') {
     $brandUrl = 'admin/dashboard.php';
+    $supportUrl = 'admin/support.php';
 } elseif ($user['role'] === 'faculty') {
     $brandUrl = 'faculty/approvals.php';
-}
-?>
-<?php
-$brandUrl = 'dashboard.php';
-if ($user['role'] === 'admin') {
-    $brandUrl = 'admin/dashboard.php';
-} elseif ($user['role'] === 'faculty') {
-    $brandUrl = 'faculty/approvals.php';
+    $supportUrl = 'faculty/support.php';
 }
 ?>
 <header class="site-header">
@@ -41,7 +36,7 @@ if ($user['role'] === 'admin') {
         <li><a href="dashboard.php" class="<?php echo $active === 'dashboard' ? 'is-active' : ''; ?>">Dashboard</a></li>
         <li><a href="resources.php" class="<?php echo $active === 'resources' ? 'is-active' : ''; ?>">Resources</a></li>
         <li><a href="my-bookings.php" class="<?php echo $active === 'bookings' ? 'is-active' : ''; ?>">My Bookings</a></li>
-        <li><a href="<?php echo in_array($user['role'], ['admin', 'faculty'], true) ? 'admin/support.php' : 'support.php'; ?>" class="<?php echo $active === 'support' ? 'is-active' : ''; ?>">Support</a></li>
+        <li><a href="<?php echo $supportUrl; ?>" class="<?php echo $active === 'support' ? 'is-active' : ''; ?>">Support</a></li>
         <li><a href="notifications.php" class="<?php echo $active === 'notifications' ? 'is-active' : ''; ?>">
           Notifications<?php if ($unread > 0): ?> <span class="nav-badge"><?php echo $unread; ?></span><?php endif; ?>
         </a></li>

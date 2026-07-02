@@ -175,7 +175,7 @@ $csrf_token = $_SESSION['csrf_token'];
           </div>
 
           <div class="field field-half">
-            <label for="department">Department / Faculty</label>
+            <label for="department">Department</label>
             <select id="department" name="department" required>
               <option value="">-- Select Department --</option>
               <?php foreach ($departments as $dept): ?>

@@ -24,12 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $canApprove = true;
         if ($user['role'] === 'faculty') {
             $pdo = get_db_connection();
-            $stmt = $pdo->prepare('SELECT u.department FROM bookings b JOIN users u ON b.user_id = u.id WHERE b.id = :id');
+            $stmt = $pdo->prepare('SELECT u.department, b.status FROM bookings b JOIN users u ON b.user_id = u.id WHERE b.id = :id');
             $stmt->execute(['id' => $bookingId]);
-            $bDept = $stmt->fetchColumn();
-            if ($bDept !== $user['department']) {
+            $row = $stmt->fetch();
+            $bDept = $row['department'] ?? false;
+            $bStatus = $row['status'] ?? false;
+
+            if (empty($user['department']) || $bDept === false || $bDept !== $user['department']) {
                 $canApprove = false;
                 $message = 'error:You can only manage bookings from your own department.';
+            } elseif (!in_array($bStatus, ['pending', 'waitlist'], true)) {
+                $canApprove = false;
+                $message = 'error:This booking has already been reviewed.';
             }
         }
 
@@ -82,7 +88,7 @@ $filters = ['pending' => 'Pending', 'approved' => 'Approved', 'waitlist' => 'Wai
         <h1>Booking approvals</h1>
         <p>
           <?php if ($departmentFilter): ?>
-            Showing requests from <strong><?php echo e($departmentFilter); ?></strong>.
+            Showing requests from your department: <strong><?php echo e($departmentFilter); ?></strong>.
           <?php else: ?>
             Showing requests from all departments.
           <?php endif; ?>

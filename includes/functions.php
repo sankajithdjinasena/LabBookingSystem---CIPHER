@@ -161,7 +161,14 @@ function calculate_priority_score(int $urgency, int $teamSize, float $fairness, 
     $wR = (float) get_setting('weight_request_time', '0.10');
 
     $urgencyNorm  = max(0, min(10, $urgency * 2));   // 1–5 → 0–10
-    $teamSizeNorm = max(0, min(10, $teamSize));
+    $teamSizeNorm = match(true) {
+        $teamSize <= 10  => 0,
+        $teamSize <= 20  => 2,
+        $teamSize <= 30  => 4,
+        $teamSize <= 40 => 6,
+        $teamSize <= 50 => 8,
+        default         => 10,
+    };
     $fairnessNorm = max(0, min(10, $fairness));
 
     // Earlier requests (relative to "now") score slightly higher — a small
@@ -331,7 +338,7 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                 if ($overlapEnd < $originalEnd) {
                     $stmtA = $pdo->prepare(
                         'INSERT INTO bookings (user_id, resource_id, purpose, start_time, end_time, urgency, team_size, priority_score, status)
-                         VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
+                        VALUES (:user_id, :resource_id, :purpose, :start_time, :end_time, :urgency, :team_size, :score, :status)'
                     );
                     $stmtA->execute([
                         'user_id'     => $userAId,
@@ -342,7 +349,7 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
                         'urgency'     => $mainConflict['urgency'],
                         'team_size'   => $mainConflict['team_size'],
                         'score'       => $scoreA,
-                        'status'      => 'approved',
+                        'status'      => $mainConflict['status'], // preserve original status — don't silently approve
                     ]);
                 }
 

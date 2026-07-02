@@ -44,7 +44,7 @@ foreach ($peakHours as $row) {
 <title>Reports — NEXLAB Admin</title>
 <link rel="stylesheet" href="../assets/css/style.css">
 <link rel="icon" type="image/png" href="../assets/img/logo.png">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
 

@@ -86,14 +86,16 @@ function update_user(int $userId, string $role, string $status): bool
 {
     $pdo = get_db_connection();
     $stmt = $pdo->prepare('UPDATE users SET role = :role, status = :status WHERE id = :id');
-    return $stmt->execute(['role' => $role, 'status' => $status, 'id' => $userId]);
+    $stmt->execute(['role' => $role, 'status' => $status, 'id' => $userId]);
+    return $stmt->rowCount() > 0;
 }
 
 function delete_user(int $userId): bool
 {
     $pdo = get_db_connection();
     $stmt = $pdo->prepare('DELETE FROM users WHERE id = :id');
-    return $stmt->execute(['id' => $userId]);
+    $stmt->execute(['id' => $userId]);
+    return $stmt->rowCount() > 0;
 }
 
 /* =====================================================================
@@ -172,12 +174,28 @@ function approve_booking_admin(int $bookingId): bool
     $booking = $stmt->fetch();
     if (!$booking) return false;
 
+    // Only pending/waitlisted bookings can be approved. Prevents double
+    // submissions (double-click, stale tab, re-posted form) from re-running
+    // this whole flow on a booking that's already been decided.
+    if (!in_array($booking['status'], ['pending', 'waitlist'], true)) {
+        return false;
+    }
+
     $resourceId = (int) $booking['resource_id'];
     $start = $booking['start_time'];
     $end = $booking['end_time'];
 
     $pdo->beginTransaction();
     try {
+        // Re-check status inside the transaction and claim it atomically —
+        // guards against a race between two concurrent approve requests.
+        $claim = $pdo->prepare("UPDATE bookings SET status = 'approved' WHERE id = :id AND status IN ('pending','waitlist')");
+        $claim->execute(['id' => $bookingId]);
+        if ($claim->rowCount() === 0) {
+            $pdo->rollBack();
+            return false;
+        }
+
         $conflicts = get_overlapping_bookings($resourceId, $start, $end, $bookingId);
         $resource = get_resource($resourceId);
 
@@ -204,9 +222,6 @@ function approve_booking_admin(int $bookingId): bool
                     : "No alternative slot was found today.");
             create_notification((int) $cb['user_id'], (int) $cb['id'], $cbAlt ? 'alternative' : 'waitlist', $cbMsg);
         }
-
-        $update = $pdo->prepare("UPDATE bookings SET status = 'approved' WHERE id = :id");
-        $update->execute(['id' => $bookingId]);
 
         $deleteWait = $pdo->prepare("DELETE FROM waitlist WHERE booking_id = :id");
         $deleteWait->execute(['id' => $bookingId]);
@@ -251,15 +266,25 @@ function approve_booking_admin(int $bookingId): bool
 function reject_booking_admin(int $bookingId, string $reason = ''): bool
 {
     $pdo = get_db_connection();
-    $stmt = $pdo->prepare('SELECT user_id FROM bookings WHERE id = :id');
+    $stmt = $pdo->prepare('SELECT user_id, status FROM bookings WHERE id = :id');
     $stmt->execute(['id' => $bookingId]);
     $booking = $stmt->fetch();
     if (!$booking) return false;
 
+    // Only pending/waitlisted bookings can be rejected — same guard as approval.
+    if (!in_array($booking['status'], ['pending', 'waitlist'], true)) {
+        return false;
+    }
+
     $pdo->beginTransaction();
     try {
-        $update = $pdo->prepare("UPDATE bookings SET status = 'rejected' WHERE id = :id");
-        $update->execute(['id' => $bookingId]);
+        // Atomic claim, same pattern as approve_booking_admin().
+        $claim = $pdo->prepare("UPDATE bookings SET status = 'rejected' WHERE id = :id AND status IN ('pending','waitlist')");
+        $claim->execute(['id' => $bookingId]);
+        if ($claim->rowCount() === 0) {
+            $pdo->rollBack();
+            return false;
+        }
 
         $deleteWait = $pdo->prepare("DELETE FROM waitlist WHERE booking_id = :id");
         $deleteWait->execute(['id' => $bookingId]);

@@ -52,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "You can't book a slot in the past.";
     } elseif ($old['urgency'] < 1 || $old['urgency'] > 5) {
         $error = 'Urgency must be between 1 and 5.';
+    } elseif (has_approved_conflict($resource['id'], $start, $end)) {
+        $error = 'This time slot for ' . $resource['name'] . ' is already booked.';
     } else {
         $durationSecs = strtotime($end) - strtotime($start);
         $isAdminOverride = in_array($user['role'], ['admin', 'faculty', 'project_lead']);

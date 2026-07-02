@@ -592,6 +592,29 @@ function create_booking(int $userId, int $resourceId, string $purpose, string $s
     }
 }
 
+/** True only if an APPROVED booking already occupies this resource/time.
+ *  Unlike has_overlapping_booking(), pending requests are not considered
+ *  a conflict here — they're just competing requests, not confirmed bookings. */
+function has_approved_conflict(int $resourceId, string $start, string $end, ?int $excludeBookingId = null): bool
+{
+    $pdo = get_db_connection();
+    $sql = "SELECT COUNT(*) AS overlaps FROM bookings
+            WHERE resource_id = :resource_id
+              AND status = 'approved'
+              AND start_time < :end_time
+              AND end_time > :start_time";
+    $params = ['resource_id' => $resourceId, 'start_time' => $start, 'end_time' => $end];
+
+    if ($excludeBookingId !== null) {
+        $sql .= ' AND id != :exclude_id';
+        $params['exclude_id'] = $excludeBookingId;
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return (int) $stmt->fetch()['overlaps'] > 0;
+}
+
 function cancel_booking(int $bookingId, int $userId): bool
 {
     $pdo = get_db_connection();
